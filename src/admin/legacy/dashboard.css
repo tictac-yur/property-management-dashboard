@@ -1090,3 +1090,64 @@ body { height: 100dvh; }
   .site-form { padding: 14px; }
   .data-bar { flex-wrap: wrap; }
 }
+
+/* Tap outside the menu to close it (phones) */
+.sb-backdrop { display: none; }
+
+@media (max-width: 768px) {
+  .sb-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 90; }
+  .sidebar:not(.collapsed) + .sb-backdrop { display: block; }
+
+  /* 16px inputs stop iPhone from zooming in when you tap a field */
+  .fld, .fg input, .fg select, .fg textarea, .todo-input { font-size: 16px; }
+
+  /* Save / Cancel stay visible at the bottom of long forms */
+  .mfoot { position: sticky; bottom: -16px; background: var(--surface2); margin: 16px -16px -16px; padding: 12px 16px; }
+  .mfoot .btn { flex: 1; justify-content: center; }
+
+  /* Tables become a stack of cards: one card per row, "Column  value" lines */
+  .tbl-wrap:not(#cal-table) { background: none; border: none; overflow: visible; }
+  .tbl-wrap:not(#cal-table) thead { display: none; }
+  .tbl-wrap:not(#cal-table) table,
+  .tbl-wrap:not(#cal-table) tbody,
+  .tbl-wrap:not(#cal-table) tfoot,
+  .tbl-wrap:not(#cal-table) tr { display: block; width: 100%; }
+  .tbl-wrap:not(#cal-table) tbody tr,
+  .tbl-wrap:not(#cal-table) tfoot tr {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+    margin-bottom: 10px; padding: 6px 14px;
+  }
+  .tbl-wrap:not(#cal-table) tfoot tr { background: var(--surface2); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .tbl-wrap:not(#cal-table) td {
+    display: flex; justify-content: space-between; align-items: center; gap: 14px;
+    padding: 7px 0; border-bottom: 1px solid var(--border); text-align: right; font-size: 13.5px;
+  }
+  .tbl-wrap:not(#cal-table) td > * { text-align: right; }
+  .tbl-wrap:not(#cal-table) tr td:last-child { border-bottom: none; }
+  .tbl-wrap:not(#cal-table) td::before {
+    content: attr(data-label); flex-shrink: 0; max-width: 42%; text-align: left;
+    font-size: 10px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--muted);
+  }
+  .tbl-wrap:not(#cal-table) td:not([data-label])::before,
+  .tbl-wrap:not(#cal-table) td[data-label=""]::before { display: none; }
+  .tbl-wrap:not(#cal-table) td:empty { display: none; }
+  .tbl-wrap:not(#cal-table) tfoot td { display: block; border: none; padding: 4px 0; }
+  .tbl-wrap:not(#cal-table) tr:hover td { background: none; }
+  .tbl-wrap:not(#cal-table) tr.empty { padding: 0; }
+  .tbl-wrap:not(#cal-table) tr.empty td { justify-content: center; text-align: center; padding: 28px 12px; }
+  /* First column (the ID) reads as the card's title */
+  .tbl-wrap:not(#cal-table) tbody td:first-child { font-size: 14px; }
+  .tbl-wrap:not(#cal-table) td[data-label="Actions"] { justify-content: flex-end; gap: 8px; }
+  .tbl-wrap:not(#cal-table) td[data-label="Actions"]::before { display: none; }
+  .tbl-wrap:not(#cal-table) td[data-label="Actions"] .btn { padding: 7px 14px; font-size: 12.5px; }
+}
+
+/* Form fields always fit their column (long dates/selects used to spill off phone screens) */
+.fgrid > * { min-width: 0; }
+.fg input, .fg select, .fg textarea { width: 100%; min-width: 0; }
+
+/* Give the long Thai addresses room on bigger screens */
+@media (min-width: 769px) {
+  #props-body td:nth-child(2) { min-width: 200px; }
+  #props-body td:nth-child(3) { min-width: 280px; line-height: 1.45; }
+}

@@ -51,6 +51,7 @@
       <div class="sb-footer-text"><span class="sync-dot" id="sync-dot"></span> <span id="sync-lbl">Synced</span> · THB</div>
     </div>
   </aside>
+  <div class="sb-backdrop" onclick="toggleSidebar()"></div>
 
   <!-- ── MAIN ── -->
   <div class="main">
@@ -73,14 +74,6 @@
       <div class="panel active" id="p-dash">
         <div class="alerts" id="dash-alerts"></div>
         <div id="goal-tracker"></div>
-        <div class="data-bar">
-          <span class="data-bar-lbl">Data backup</span>
-          <button class="btn btn-secondary btn-sm" onclick="exportData()">⬇ Export backup</button>
-          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-file').click()">⬆ Import / Restore</button>
-          <input type="file" id="import-file" accept="application/json,.json" style="display:none" onchange="importData(this)">
-          <span class="data-bar-hint">Save a copy of everything, or restore from a file — your safety net.</span>
-          <textarea id="backup-text" readonly style="display:none;width:100%;height:120px;margin-top:8px;font-family:monospace;font-size:11px;background:var(--surface);color:var(--text);border:1px solid var(--border2);border-radius:var(--r-sm);padding:8px"></textarea>
-        </div>
         <div class="cards" id="dash-cards"></div>
         <div class="dash-grid">
           <div class="chart-box"><div class="chart-title">Occupancy Rate</div><canvas id="occChart" height="200"></canvas></div>
@@ -132,6 +125,15 @@
           </div>
           <div id="todo-list"></div>
           <div id="todo-empty" class="todo-empty" style="display:none">No tasks yet — add one above.</div>
+        </div>
+
+        <div class="data-bar" style="margin-top:24px">
+          <span class="data-bar-lbl">Data backup</span>
+          <button class="btn btn-secondary btn-sm" onclick="exportData()">⬇ Export backup</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-file').click()">⬆ Import / Restore</button>
+          <input type="file" id="import-file" accept="application/json,.json" style="display:none" onchange="importData(this)">
+          <span class="data-bar-hint">Save a copy of everything, or restore from a file — your safety net.</span>
+          <textarea id="backup-text" readonly style="display:none;width:100%;height:120px;margin-top:8px;font-family:monospace;font-size:11px;background:var(--surface);color:var(--text);border:1px solid var(--border2);border-radius:var(--r-sm);padding:8px"></textarea>
         </div>
       </div>
 

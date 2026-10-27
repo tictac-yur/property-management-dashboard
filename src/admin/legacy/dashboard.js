@@ -76,6 +76,8 @@ const daysUntil=d=>{if(!d)return null;const t=new Date(d);t.setHours(0,0,0,0);re
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const propName=id=>(getData('properties').find(p=>p.id===id)||{name:id}).name;
 const tenName=id=>(getData('tenants').find(t=>t.id===id)||{name:id}).name;
+/** a as a % of b, or — when b (e.g. property value) isn't filled in yet */
+const pct=(a,b)=>(+b>0)?(a/b*100).toFixed(2)+'%':'—';
 const stars=n=>'★'.repeat(n)+'☆'.repeat(5-n);
 
 const PAGE_TITLES={dash:'Dashboard',props:'Properties',ten:'Tenants',rent:'Rent Payments',cal:'Rent Calendar',maint:'Maintenance',dates:'Key Dates',exp:'Expenses',inc:'Income Summary',loans:'Loans',docs:'Documents',contracts:'Contracts',contacts:'Contacts',contractors:'Contractors',listings:'Website Listings',site:'Site Content',inq:'Inquiries',team:'Team & Access'};
@@ -430,7 +432,7 @@ function renderProps(){
   const tbody=document.getElementById('props-body');
   if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="13">No properties found.</td></tr>';return;}
   tbody.innerHTML=list.map(p=>{
-    const yld=(p.rent*12/p.value*100).toFixed(2)+'%';
+    const yld=pct(p.rent*12,p.value);
     const payBtn=p.status==='Occupied'?`<button class="btn btn-pay btn-xs" onclick="quickPayModal('${p.id}')">💳 Pay</button>`:`<span style="color:var(--muted);font-size:11px">Vacant</span>`;
     const sqm=+p.sqm||0;
     const camRate=+p.camRate||0;
@@ -456,7 +458,8 @@ function renderProps(){
   document.getElementById('props-total-rent').textContent=fmt(occ.reduce((s,p)=>s+(+p.rent),0));
   document.getElementById('props-occ').textContent=occ.length+'/'+props.length+' occupied';
   document.getElementById('props-total-val').textContent=fmt(props.reduce((s,p)=>s+(+p.value),0));
-  const avgY=(props.reduce((s,p)=>s+(p.rent*12/p.value*100),0)/props.length).toFixed(2)+'%';
+  const valued=props.filter(p=>+p.value>0);
+  const avgY=valued.length?(valued.reduce((s,p)=>s+(p.rent*12/p.value*100),0)/valued.length).toFixed(2)+'%':'—';
   document.getElementById('props-avg-yield').textContent=avgY;
   const totalCamAll=props.reduce((s,p)=>s+((+p.sqm||0)*(+p.camRate||0)),0);
   document.getElementById('props-total-cam').textContent=totalCamAll?fmt(totalCamAll):'—';
@@ -864,8 +867,8 @@ function renderIncome(){
     const annRent=p.rent*12;
     const annExp=expenses.filter(e=>e.propId===p.id).reduce((s,e)=>s+(+e.amount),0);
     const net=annRent-annExp;
-    const roi=(net/p.value*100).toFixed(2)+'%';
-    const gross=(annRent/p.value*100).toFixed(2)+'%';
+    const roi=pct(net,p.value);
+    const gross=pct(annRent,p.value);
     return`<tr><td><strong style="color:var(--accent)">${p.id}</strong></td><td>${p.name}</td><td>${fmt(annRent)}</td><td>${fmt(annExp)}</td><td>${net>=0?fmt(net):`<span style="color:var(--red)">${fmt(net)}</span>`}</td><td>${fmt(p.value)}</td><td>${roi}</td><td>${gross}</td></tr>`;
   }).join('');
 }
@@ -926,8 +929,14 @@ function renderContractors(){
   initTableSort('contractors-body');
 }
 
-/* ══ DELETE (with toast, no confirm) ══ */
+/* ══ DELETE (tap Del, then "Sure?" to confirm) ══ */
 function delItem(key,id,cb){
+  const btn=window.event&&window.event.target&&window.event.target.closest('button');
+  if(btn&&btn.dataset.confirm!=='pending'){
+    btn.dataset.confirm='pending';btn.textContent='Sure?';
+    setTimeout(()=>{if(btn.isConnected){btn.dataset.confirm='';btn.textContent='Del';}},3000);
+    return;
+  }
   const list=getData(key);
   const item=list.find(x=>x.id===id);
   setData(key,list.filter(x=>x.id!==id));
@@ -1023,16 +1032,26 @@ function nextSeqId(key,prefix,pad){
   return prefix+String(max+1).padStart(pad,'0');
 }
 
+const AUTO_ID={prop:['properties','P',3],ten:['tenants','T',3],pay:['payments','RP',3],maint:['maintenance','M',3],date:['keyDates','KD',2],exp:['expenses','E',3],loan:['loans','L',3],doc:['documents','D',3],contract:['contracts','C',3],contact:['contacts','CT',3]};
+
 function openModal(type,id){
   _modalType=type;_modalId=id;
   const cfg=MODAL_CONFIGS[type];
   const rec=id?getData(cfg.key).find(x=>x.id===id):null;
-  const autoId=(!id&&type==='prop')?nextSeqId('properties','P',3):'';
+  const autoId=(!id&&AUTO_ID[type])?nextSeqId(...AUTO_ID[type]):'';
   document.getElementById('modal-title').textContent=(id?'✏️ Edit ':'＋ Add ')+cfg.title;
   const body=document.getElementById('modal-body');
   body.innerHTML=`<div class="fgrid">${cfg.fields.map(f=>{
     const val=rec?(rec[f.id]??''):(f.id==='id'?autoId:'');
     const cls='fg'+(f.span===2?' span2':'');
+    if(f.id==='propId'||f.id==='tenantId'){
+      const items=f.id==='propId'?getData('properties'):getData('tenants');
+      let opts='<option value="">— none —</option>';
+      if((f.ph||'').includes('ALL'))opts+=`<option value="ALL"${val==='ALL'?' selected':''}>All properties</option>`;
+      if(val&&val!=='ALL'&&!items.some(x=>x.id===val))opts+=`<option value="${escHtml(String(val))}" selected>${escHtml(String(val))}</option>`;
+      opts+=items.map(x=>`<option value="${x.id}"${val===x.id?' selected':''}>${x.id} · ${escHtml(String(x.name||''))}</option>`).join('');
+      return`<div class="${cls}"><label>${f.label.replace(' ID','')}</label><select id="mf_${f.id}">${opts}</select></div>`;
+    }
     if(f.type==='select'){
       const opts=f.opts.map(o=>`<option value="${o}"${val===o?' selected':''}>${o}</option>`).join('');
       return`<div class="${cls}"><label>${f.label}</label><select id="mf_${f.id}">${opts}</select></div>`;
@@ -1485,6 +1504,19 @@ function importData(input){
   };
   r.readAsText(file);
 }
+
+/* ══ PHONE TABLE LABELS ══ each cell gets its column name so phones can show rows as cards */
+function labelTables(){
+  document.querySelectorAll('.content .tbl-wrap table').forEach(t=>{
+    const heads=[...t.querySelectorAll('thead th')].map(th=>th.firstChild?th.firstChild.textContent.trim():'');
+    t.querySelectorAll('tbody tr').forEach(tr=>{
+      [...tr.cells].forEach((td,i)=>{if(td.dataset.label===undefined&&td.colSpan===1)td.dataset.label=heads[i]||'';});
+    });
+  });
+}
+let _labelQueued=false;
+new MutationObserver(()=>{if(_labelQueued)return;_labelQueued=true;requestAnimationFrame(()=>{_labelQueued=false;labelTables();});})
+  .observe(document.querySelector('.content'),{childList:true,subtree:true});
 
 /* ══ LIVE SYNC ══ re-render when another device changes something */
 PM.onChange=()=>{
