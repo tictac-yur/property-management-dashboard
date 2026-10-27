@@ -2,7 +2,9 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { QueryCtx } from "../_generated/server";
 import { Doc } from "../_generated/dataModel";
 
-export type Role = "admin" | "manager";
+export type Role = "admin" | "manager" | "viewer";
+
+const RANK: Record<Role, number> = { viewer: 1, manager: 2, admin: 3 };
 
 /** Emails listed in the ADMIN_EMAILS env var (comma separated) are always admins. */
 function isBootstrapAdmin(email: string | undefined) {
@@ -27,13 +29,13 @@ export async function currentUser(ctx: QueryCtx) {
 
 /**
  * Throws unless the signed-in user has at least `min` access.
- * "manager" = can use the dashboard and edit the website; "admin" = also manages the team.
+ * viewer = can look; manager = can also change data; admin = also manages who has access.
  */
 export async function requireRole(ctx: QueryCtx, min: Role) {
   const user = await currentUser(ctx);
   if (!user) throw new Error("Not signed in");
   const role = effectiveRole(user);
-  if (!role || (min === "admin" && role !== "admin")) {
+  if (!role || RANK[role] < RANK[min]) {
     throw new Error("You don't have access to this");
   }
   return user;

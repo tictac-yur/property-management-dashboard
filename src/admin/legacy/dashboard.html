@@ -35,17 +35,13 @@
       <div class="nav-item" data-t="contacts"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></span><span class="nav-label">Contacts</span></div>
       <div class="nav-item" data-t="contractors"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18h20v3H2z"/><path d="M4 18v-3a8 8 0 0 1 16 0v3"/><path d="M10 7V4h4v3"/></svg></span><span class="nav-label">Contractors</span></div>
 
-      <div class="sb-section-hdr">Website</div>
-      <div class="nav-item" data-t="listings"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span><span class="nav-label">Listings</span></div>
-      <div class="nav-item" data-t="site"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg></span><span class="nav-label">Site Content</span></div>
-      <div class="nav-item" data-t="inq"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6 8.5 7 8.5-7"/></svg></span><span class="nav-label">Inquiries</span><span class="nav-badge blue" id="nb-inq" style="display:none"></span></div>
-      <div class="nav-item admin-only" data-t="team"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.5 3.2 8.2 7.5 9.5 4.3-1.3 7.5-5 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg></span><span class="nav-label">Team &amp; Access</span></div>
+      <div class="sb-section-hdr admin-only">Settings</div>
+      <div class="nav-item admin-only" data-t="team"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.5 3.2 8.2 7.5 9.5 4.3-1.3 7.5-5 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg></span><span class="nav-label">Team &amp; Access</span><span class="nav-badge warn" id="nb-team" style="display:none"></span></div>
     </nav>
 
     <div class="sb-footer">
       <div class="sb-footer-text" id="sb-user"></div>
       <div class="sb-footer-text sb-footer-links">
-        <a href="/" target="_blank" rel="noopener">View website ↗</a>
         <button type="button" onclick="PM.signOut()">Sign out</button>
       </div>
       <div class="sb-footer-text"><span class="sync-dot" id="sync-dot"></span> <span id="sync-lbl">Synced</span> · THB</div>
@@ -59,6 +55,7 @@
     <div class="topbar">
       <button class="mob-menu" onclick="toggleSidebar()" aria-label="Open menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <div class="topbar-title" id="pageTitle">Dashboard</div>
+      <span class="badge b-gray view-only-tag">View only</span>
       <div class="topbar-kpis">
         <div class="tkpi"><div class="tkpi-val accent" id="h-props">8</div><div class="tkpi-lbl">Properties</div></div>
         <div class="tkpi"><div class="tkpi-val" id="h-occ">—</div><div class="tkpi-lbl">Occupancy</div></div>
@@ -334,47 +331,9 @@
         </table></div>
       </div>
 
-      <!-- WEBSITE · LISTINGS -->
-      <div class="panel" id="p-listings">
-        <div class="toolbar">
-          <button class="btn btn-primary" onclick="openListingModal(null)">+ Add Listing</button>
-          <button class="btn btn-secondary" onclick="listingsFromProperties()" title="Create unpublished draft listings for properties that don't have one yet">Draft from Properties</button>
-          <a class="btn btn-secondary" href="/" target="_blank" rel="noopener">View website ↗</a>
-        </div>
-        <div class="tbl-wrap"><table>
-          <thead><tr><th>Photo</th><th>Title</th><th>Property</th><th>Type</th><th>Rent (THB)</th><th>Size</th><th>Availability</th><th>On Website</th><th>Actions</th></tr></thead>
-          <tbody id="listings-body"></tbody>
-        </table></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:10px">Only listings switched <strong>On</strong> are visible on the public website. Tenant names, phone numbers and finances are never shown publicly.</div>
-      </div>
-
-      <!-- WEBSITE · SITE CONTENT -->
-      <div class="panel" id="p-site">
-        <div class="toolbar">
-          <button class="btn btn-primary" onclick="saveSiteContent()">Save &amp; Publish</button>
-          <a class="btn btn-secondary" href="/" target="_blank" rel="noopener">View website ↗</a>
-        </div>
-        <div class="site-form" id="site-form"></div>
-      </div>
-
-      <!-- WEBSITE · INQUIRIES -->
-      <div class="panel" id="p-inq">
-        <div class="toolbar">
-          <select class="fld" id="inq-filter" onchange="renderInquiries()">
-            <option value="open">New &amp; Contacted</option>
-            <option value="all">All inquiries</option>
-            <option value="Closed">Closed only</option>
-          </select>
-        </div>
-        <div class="tbl-wrap"><table>
-          <thead><tr><th>Received</th><th>Name</th><th>Contact</th><th>Listing</th><th>Message</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody id="inq-body"></tbody>
-        </table></div>
-      </div>
-
-      <!-- WEBSITE · TEAM -->
+      <!-- TEAM -->
       <div class="panel" id="p-team">
-        <div class="alert blue">Anyone can create an account at <strong>/admin</strong>, but they see nothing until you give them a role here. <strong>Manager</strong> = can use the dashboard and edit the website. <strong>Admin</strong> = also manages this list.</div>
+        <div class="alert blue">Family and friends can create an account on this site, then you choose what they can do here. <strong>Viewer</strong> = can look only. <strong>Manager</strong> = can also add and change records. <strong>Admin</strong> = can also manage this list.</div>
         <div class="tbl-wrap"><table>
           <thead><tr><th>Email</th><th>Joined</th><th>Access</th></tr></thead>
           <tbody id="team-body"></tbody>

@@ -6,7 +6,7 @@ import { requireRole } from "./lib/access";
 export const load = query({
   args: {},
   handler: async (ctx) => {
-    await requireRole(ctx, "manager");
+    await requireRole(ctx, "viewer");
     const collections: Record<string, unknown[]> = {};
     for (const r of await ctx.db.query("records").collect()) {
       (collections[r.collection] ??= []).push(r.data);

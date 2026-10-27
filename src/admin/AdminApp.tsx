@@ -8,7 +8,7 @@ import "./auth.css";
 export default function AdminApp({ client }: { client: ConvexReactClient }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
-  document.title = "Admin · PropManager";
+  document.title = "PropManager";
 
   if (isLoading || (isAuthenticated && me === undefined)) return <Splash text="Loading…" />;
   if (!isAuthenticated || !me) return <SignIn />;
@@ -58,7 +58,7 @@ function SignIn() {
           <div className="auth-icon">PM</div>
           <div>
             <div className="auth-title">PropManager</div>
-            <div className="auth-sub">Owner &amp; team portal</div>
+            <div className="auth-sub">Property dashboard</div>
           </div>
         </div>
         <h1>{flow === "signIn" ? "Sign in" : "Create an account"}</h1>
@@ -90,9 +90,6 @@ function SignIn() {
         >
           {flow === "signIn" ? "New here? Create an account" : "Already have an account? Sign in"}
         </button>
-        <a className="auth-link" href="/">
-          ← Back to website
-        </a>
       </form>
     </div>
   );
@@ -117,9 +114,6 @@ function Pending({ email }: { email: string }) {
         <button className="auth-btn" onClick={() => void signOut()}>
           Sign out
         </button>
-        <a className="auth-link" href="/">
-          ← Back to website
-        </a>
       </div>
     </div>
   );

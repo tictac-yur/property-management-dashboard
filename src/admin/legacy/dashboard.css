@@ -462,25 +462,15 @@ td strong[style*="--accent"] { font-weight: 600; }
 .data-bar-lbl { font-size: 13px; font-weight: 600; color: var(--text); margin-right: 4px; }
 .data-bar-hint { font-size: 12.5px; color: var(--muted); }
 
-/* ───────────────────── WEBSITE ADMIN ───────────────────── */
-.lst-thumb { width: 64px; height: 46px; border-radius: 8px; object-fit: cover; display: block; background: var(--surface3); }
-.lst-thumb-empty { display: flex; align-items: center; justify-content: center; color: var(--muted); }
-.lst-photos { display: flex; flex-wrap: wrap; gap: 8px; }
-.lst-photo { position: relative; width: 108px; height: 78px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
-.lst-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.lst-photo-btn { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; border: none; background: rgba(17,24,39,.7); color: #fff; font-size: 11px; cursor: pointer; }
-.lst-photo-btn.lst-left { right: auto; left: 4px; }
-.lst-cover { position: absolute; left: 4px; bottom: 4px; font-size: 10.5px; font-weight: 600; background: var(--accent); color: #fff; padding: 1px 7px; border-radius: 99px; }
-.pub-toggle {
-  display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 550;
-  background: none; border: none; color: var(--muted); padding: 0;
-}
-.pub-toggle span { width: 34px; height: 20px; border-radius: 99px; background: var(--border2); position: relative; transition: background .15s; }
-.pub-toggle span::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
-.pub-toggle.on { color: var(--green); }
-.pub-toggle.on span { background: #22c55e; }
-.pub-toggle.on span::after { transform: translateX(14px); }
-.site-form { max-width: 780px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 22px 24px; box-shadow: var(--shadow-sm); }
+/* ───────────────────── VIEW-ONLY (viewer role) ───────────────────── */
+.read-only .btn-primary, .read-only .btn-danger, .read-only .btn-pay,
+.read-only td .btn-secondary, .read-only [id^="btn-clear"],
+.read-only [onclick^="openFeeModal"], .read-only [onclick*="import-file"],
+.read-only [onclick^="toggleGoalEdit"], .read-only .todo-input-row, .read-only .todo-del,
+.read-only .todo-footer-clear, .read-only .inc-hint { display: none !important; }
+.read-only .cal-cell, .read-only .inc-cell, .read-only .todo-check { pointer-events: none; }
+.view-only-tag { display: none; }
+.read-only .view-only-tag { display: inline-flex; }
 
 /* ───────────────────── PHONES ───────────────────── */
 .sb-backdrop { display: none; }

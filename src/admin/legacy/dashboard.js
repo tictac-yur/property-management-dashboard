@@ -53,7 +53,8 @@ const SEED = {
 function getData(k){const v=PM.get(k);return v!==undefined?v:(Array.isArray(SEED[k])?[]:SEED[k])}
 function setData(k,v){PM.set(k,v)}
 
-if(!PM.get('initialized')){
+const canEdit=PM.me.role!=='viewer';
+if(canEdit&&!PM.get('initialized')){
   Object.keys(SEED).forEach(k=>setData(k,SEED[k]));
   setData('initialized',true);
 }
@@ -80,7 +81,7 @@ const tenName=id=>(getData('tenants').find(t=>t.id===id)||{name:id}).name;
 const pct=(a,b)=>(+b>0)?(a/b*100).toFixed(2)+'%':'—';
 const stars=n=>'★'.repeat(n)+'☆'.repeat(5-n);
 
-const PAGE_TITLES={dash:'Dashboard',props:'Properties',ten:'Tenants',rent:'Rent Payments',cal:'Rent Calendar',maint:'Maintenance',dates:'Key Dates',exp:'Expenses',inc:'Income Summary',loans:'Loans',docs:'Documents',contracts:'Contracts',contacts:'Contacts',contractors:'Contractors',listings:'Website Listings',site:'Site Content',inq:'Inquiries',team:'Team & Access'};
+const PAGE_TITLES={dash:'Dashboard',props:'Properties',ten:'Tenants',rent:'Rent Payments',cal:'Rent Calendar',maint:'Maintenance',dates:'Key Dates',exp:'Expenses',inc:'Income Summary',loans:'Loans',docs:'Documents',contracts:'Contracts',contacts:'Contacts',contractors:'Contractors',team:'Team & Access'};
 
 function statusBadge(s){
   const m={'Occupied':'b-green','Vacant':'b-purple','Active':'b-green','Expired':'b-red','Paid':'b-green','Unpaid':'b-red','Partial':'b-yellow','Resolved':'b-green','Open':'b-orange','Pending':'b-yellow','In Progress':'b-blue'};
@@ -122,7 +123,7 @@ function isPhone(){return window.matchMedia('(max-width: 768px)').matches}
 if(isPhone())document.getElementById('sidebar').classList.add('collapsed');
 
 function renderPanel(t){
-  const map={props:renderProps,ten:renderTenants,rent:renderPayments,cal:renderCalendar,maint:renderMaint,dates:renderDates,exp:renderExpenses,inc:renderIncome,loans:renderLoans,docs:renderDocs,contracts:renderContracts,contacts:renderContacts,contractors:renderContractors,listings:renderListings,site:renderSiteContent,inq:renderInquiries,team:renderTeam};
+  const map={props:renderProps,ten:renderTenants,rent:renderPayments,cal:renderCalendar,maint:renderMaint,dates:renderDates,exp:renderExpenses,inc:renderIncome,loans:renderLoans,docs:renderDocs,contracts:renderContracts,contacts:renderContacts,contractors:renderContractors,team:renderTeam};
   if(map[t])map[t]();
 }
 
@@ -1527,6 +1528,6 @@ PM.onChange=()=>{
 };
 
 /* ══ INIT ══ */
-syncLeaseDates();
+if(canEdit)syncLeaseDates();
 renderDashboard();
 renderTodos();

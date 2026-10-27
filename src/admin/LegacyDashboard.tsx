@@ -6,7 +6,7 @@ import { createBridge, Me } from "./bridge";
 import markup from "./legacy/dashboard.html?raw";
 import css from "./legacy/dashboard.css?raw";
 import dashboardJs from "./legacy/dashboard.js?raw";
-import websiteJs from "./legacy/website.js?raw";
+import teamJs from "./legacy/team.js?raw";
 
 type Win = Window & { Chart?: unknown; PM?: unknown; __pmRoot?: HTMLElement };
 
@@ -42,7 +42,7 @@ export default function LegacyDashboard({ client, me }: { client: ConvexReactCli
       .then(() => {
         host.current!.appendChild(root);
         const script = document.createElement("script");
-        script.textContent = dashboardJs + "\n;\n" + websiteJs;
+        script.textContent = dashboardJs + "\n;\n" + teamJs;
         document.body.appendChild(script);
         setLoaded(true);
       })

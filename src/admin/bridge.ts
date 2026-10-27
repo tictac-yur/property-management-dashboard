@@ -18,7 +18,7 @@ type Snapshot = {
   settings: Record<string, unknown>;
   files: Files;
 };
-export type Me = { email: string; role: "admin" | "manager" };
+export type Me = { email: string; role: "admin" | "manager" | "viewer" };
 
 export type Bridge = ReturnType<typeof createBridge>;
 
@@ -60,6 +60,17 @@ export function createBridge(client: ConvexReactClient, me: Me, signOut: () => P
     },
 
     set(key: string, value: unknown) {
+      if (me.role === "viewer") {
+        // View-only: undo whatever the screen changed locally and say why.
+        if (lastServer) {
+          data[key] = key in lastServer.settings
+            ? plain(lastServer.settings[key])
+            : (lastServer.collections[key] ?? []).map(plain);
+        }
+        (window as unknown as { toast?: (m: string, t: string) => void }).toast?.("You have view-only access", "error");
+        queueMicrotask(() => bridge.onChange?.());
+        return;
+      }
       if (Array.isArray(value)) {
         const prev = synced[key] ?? new Map<string, string>();
         const next = new Map<string, string>();
@@ -104,7 +115,7 @@ export function createBridge(client: ConvexReactClient, me: Me, signOut: () => P
 
     removeFile: (rid: string) => client.mutation(api.portfolio.removeFile, { rid }),
 
-    // Generic access for the website admin panels (src/admin/legacy/website.js)
+    // Generic access for the Team & Access panel (src/admin/legacy/team.js)
     query: (name: string, args: Record<string, unknown>) =>
       client.query(makeFunctionReference<"query">(name), args),
     mutation: (name: string, args: Record<string, unknown>) =>
@@ -124,7 +135,7 @@ export function createBridge(client: ConvexReactClient, me: Me, signOut: () => P
 
     async signOut() {
       await signOut();
-      window.location.href = "/admin";
+      window.location.href = "/";
     },
   };
 

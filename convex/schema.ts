@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
-export const role = v.union(v.literal("admin"), v.literal("manager"));
+export const role = v.union(v.literal("admin"), v.literal("manager"), v.literal("viewer"));
 
 export default defineSchema({
   ...authTables,
@@ -22,7 +22,7 @@ export default defineSchema({
     .index("email", ["email"])
     .index("phone", ["phone"]),
 
-  // ── PRIVATE: portfolio data used by the admin dashboard ──
+  // ── Portfolio data used by the dashboard ──
   // One row per dashboard record (property, tenant, payment, ...).
   // `collection` is the dashboard section key, `rid` the record's own ID (P001, T003, ...).
   records: defineTable({
@@ -45,49 +45,4 @@ export default defineSchema({
     name: v.string(),
     storageId: v.id("_storage"),
   }).index("by_rid", ["rid"]),
-
-  // ── PUBLIC: website content managed from the admin portal ──
-  siteContent: defineTable({
-    brandName: v.string(),
-    tagline: v.string(),
-    heroTitle: v.string(),
-    heroSubtitle: v.string(),
-    aboutTitle: v.string(),
-    aboutBody: v.string(),
-    contactPhone: v.string(),
-    contactEmail: v.string(),
-    contactLine: v.string(),
-    contactAddress: v.string(),
-    footerNote: v.string(),
-  }),
-
-  listings: defineTable({
-    title: v.string(),
-    propId: v.optional(v.string()),
-    type: v.string(),
-    location: v.string(),
-    rent: v.number(),
-    sqm: v.number(),
-    bedrooms: v.number(),
-    bathrooms: v.number(),
-    availability: v.union(
-      v.literal("Available"),
-      v.literal("Coming Soon"),
-      v.literal("Rented"),
-    ),
-    description: v.string(),
-    features: v.array(v.string()),
-    photos: v.array(v.id("_storage")),
-    published: v.boolean(),
-    sortOrder: v.number(),
-  }).index("by_published", ["published", "sortOrder"]),
-
-  inquiries: defineTable({
-    name: v.string(),
-    contact: v.string(),
-    message: v.string(),
-    listingId: v.optional(v.id("listings")),
-    listingTitle: v.optional(v.string()),
-    status: v.union(v.literal("New"), v.literal("Contacted"), v.literal("Closed")),
-  }),
 });
