@@ -1,12 +1,12 @@
 :root {
-  --p-bg: #f7f7fb;
+  --p-bg: #f5f6f8;
   --p-surface: #ffffff;
   --p-surface-2: #eef0f6;
   --p-border: rgba(15, 20, 40, 0.1);
   --p-text: #141826;
   --p-text-2: #4a5068;
   --p-muted: #7b8199;
-  --p-accent: #2c5fd4;
+  --p-accent: #2563eb;
   --p-accent-bg: rgba(44, 95, 212, 0.1);
   --p-green: #15803d;
   --p-green-bg: rgba(21, 128, 61, 0.12);

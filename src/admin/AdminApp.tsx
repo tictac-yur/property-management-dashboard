@@ -55,7 +55,7 @@ function SignIn() {
         }}
       >
         <div className="auth-brand">
-          <div className="auth-icon">🏢</div>
+          <div className="auth-icon">PM</div>
           <div>
             <div className="auth-title">PropManager</div>
             <div className="auth-sub">Owner &amp; team portal</div>
@@ -104,7 +104,7 @@ function Pending({ email }: { email: string }) {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-brand">
-          <div className="auth-icon">⏳</div>
+          <div className="auth-icon">…</div>
           <div>
             <div className="auth-title">Waiting for access</div>
             <div className="auth-sub">{email}</div>

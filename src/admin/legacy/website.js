@@ -32,7 +32,7 @@ function renderListings(){
   const list=WEB.listings;
   if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="9">No listings yet — add one, or draft them from your properties.</td></tr>';return;}
   tbody.innerHTML=list.map(l=>{
-    const thumb=l.photoUrls[0]?`<img class="lst-thumb" src="${l.photoUrls[0]}" alt="">`:'<div class="lst-thumb lst-thumb-empty">🏢</div>';
+    const thumb=l.photoUrls[0]?`<img class="lst-thumb" src="${l.photoUrls[0]}" alt="">`:'<div class="lst-thumb lst-thumb-empty"></div>';
     return`<tr>
       <td>${thumb}</td>
       <td><strong>${escHtml(l.title)}</strong><div style="font-size:10.5px;color:var(--muted)">${escHtml(l.location||'')}</div></td>
@@ -79,7 +79,7 @@ function openListingModal(id){
   const v=(k,d='')=>l?(l[k]??d):d;
   const propOpts='<option value="">— none —</option>'+getData('properties').map(p=>`<option value="${p.id}"${v('propId')===p.id?' selected':''}>${p.id} · ${escHtml(p.name)}</option>`).join('');
   const sel=(id,opts,cur)=>`<select id="${id}">${opts.map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('')}</select>`;
-  document.getElementById('modal-title').textContent=(l?'✏️ Edit':'＋ Add')+' Listing';
+  document.getElementById('modal-title').textContent=(l?'Edit':'Add')+' Listing';
   document.getElementById('modal-body').innerHTML=`<div class="fgrid">
     <div class="fg span2"><label>Title (shown on website)</label><input id="lf_title" value="${escHtml(String(v('title')))}" placeholder="e.g. Cozy 1-bed near MRT Pak Kret"></div>
     <div class="fg"><label>Linked property</label><select id="lf_propId" onchange="listingPrefill()">${propOpts}</select></div>
@@ -94,13 +94,13 @@ function openListingModal(id){
     <div class="fg span2"><label>Description</label><textarea id="lf_description" rows="4" placeholder="What makes this unit nice to live in?">${escHtml(String(v('description')))}</textarea></div>
     <div class="fg span2"><label>Features (comma separated)</label><input id="lf_features" value="${escHtml((l?l.features:[]).join(', '))}" placeholder="Fully furnished, Washing machine, Pool, Gym, Parking"></div>
     <div class="fg span2"><label>Photos</label><div class="lst-photos" id="lf_photos"></div>
-      <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="document.getElementById('lf_upload').click()">＋ Add photos</button>
+      <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="document.getElementById('lf_upload').click()">+ Add photos</button>
       <input type="file" id="lf_upload" accept="image/*" multiple style="display:none" onchange="uploadListingPhotos(this)"></div>
     <label class="fg span2" style="flex-direction:row;align-items:center;gap:9px;cursor:pointer"><input type="checkbox" id="lf_published" ${v('published',false)?'checked':''} style="width:15px;height:15px;accent-color:var(--accent)"> Show on public website</label>
   </div>`;
   renderListingPhotos();
   const btn=document.getElementById('modal-save');
-  btn.textContent='💾 Save Listing';
+  btn.textContent='Save Listing';
   btn.onclick=()=>saveListing(id);
   document.getElementById('modal-overlay').classList.add('open');
 }

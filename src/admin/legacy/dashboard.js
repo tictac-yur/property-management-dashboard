@@ -89,7 +89,7 @@ function statusBadge(s){
 function daysPill(d,label){
   if(label)return`<span class="dpill dpill-gray">${label}</span>`;
   if(d===null)return'—';
-  if(d<0)return`<span class="dpill dpill-red">⚠ ${Math.abs(d)}d overdue</span>`;
+  if(d<0)return`<span class="dpill dpill-red">${Math.abs(d)}d overdue</span>`;
   if(d===0)return`<span class="dpill dpill-red">Today!</span>`;
   if(d<=14)return`<span class="dpill dpill-red">${d}d</span>`;
   if(d<=30)return`<span class="dpill dpill-orange">${d}d</span>`;
@@ -135,7 +135,7 @@ function openFeeModal(kind){
   const props=getData('properties');
   if(!props.length){toast('Add a property first','error');return;}
   const isAgent=kind==='agent';
-  document.getElementById('fee-title').textContent=isAgent?'🧾 Charge Agent Fee':'🏢 Log CAM Fee';
+  document.getElementById('fee-title').textContent=isAgent?'Charge Agent Fee':'Log CAM Fee';
   const opts=props.map(p=>'<option value="'+p.id+'">'+escHtml(p.name)+'</option>').join('');
   const todayStr=new Date().toISOString().slice(0,10);
   const hint=isAgent
@@ -261,8 +261,8 @@ function renderGoal(){
   const amtColor = net>=0 ? 'var(--green)' : 'var(--red)';
   host.innerHTML =
    '<div class="goal-card">'
-   +'<div class="goal-head"><div class="goal-title">\uD83C\uDF93 '+escHtml(g.label)+' \u2014 '+g.years+'-Year Net Income Goal '+pace+'</div>'
-   +'<button class="btn btn-secondary btn-xs" onclick="toggleGoalEdit(true)">\u2699 Edit</button></div>'
+   +'<div class="goal-head"><div class="goal-title">'+escHtml(g.label)+' \u2014 '+g.years+'-Year Net Income Goal '+pace+'</div>'
+   +'<button class="btn btn-secondary btn-xs" onclick="toggleGoalEdit(true)">Edit</button></div>'
    +'<div class="goal-body">'
      +'<div class="goal-main">'
        +'<div class="goal-amt" style="color:'+amtColor+'">'+fmt(net)+' <span>of '+fmt(target)+'</span></div>'
@@ -331,9 +331,9 @@ function renderDashboard(){
   `;
 
   let html='';
-  if(overdueAlerts.length)html+=`<div class="alert red">⚠️ ${overdueAlerts.length} key date(s) overdue — check Key Dates immediately.</div>`;
-  if(unpaid.length)html+=`<div class="alert yellow">🔔 ${unpaid.length} rent payment(s) unpaid totalling ${fmt(unpaidTotal)}.</div>`;
-  if(openMaint.length)html+=`<div class="alert blue">🔧 ${openMaint.length} maintenance issue(s) open.</div>`;
+  if(overdueAlerts.length)html+=`<div class="alert red">${overdueAlerts.length} key date(s) overdue — check Key Dates immediately.</div>`;
+  if(unpaid.length)html+=`<div class="alert yellow">${unpaid.length} rent payment(s) unpaid totalling ${fmt(unpaidTotal)}.</div>`;
+  if(openMaint.length)html+=`<div class="alert blue">${openMaint.length} maintenance issue(s) open.</div>`;
   document.getElementById('dash-alerts').innerHTML=html;
 
   // Sidebar badges
@@ -373,9 +373,9 @@ function renderOccChart(occ,vac){
     type:'doughnut',
     data:{
       labels:['Occupied','Vacant'],
-      datasets:[{data:[occ,vac],backgroundColor:['#22c55e','#1c1c27'],borderWidth:2,borderColor:'#15151e',hoverBorderColor:'#15151e',hoverOffset:4}]
+      datasets:[{data:[occ,vac],backgroundColor:['#2563eb','#e5e7eb'],borderWidth:3,borderColor:'#ffffff',hoverBorderColor:'#ffffff',hoverOffset:4}]
     },
-    options:{plugins:{legend:{position:'bottom',labels:{font:{size:11,family:'Inter'},color:'#5e5e7a',padding:18,usePointStyle:true,pointStyleWidth:8}}},cutout:'74%'}
+    options:{plugins:{legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},color:'#6b7280',padding:18,usePointStyle:true,pointStyleWidth:8}}},cutout:'74%'}
   });
 }
 
@@ -399,15 +399,15 @@ function renderIncChart(){
     data:{
       labels:months,
       datasets:[
-        {label:'Income (rent collected)',data:income,backgroundColor:'rgba(34,197,94,0.65)',borderRadius:5,borderSkipped:false,hoverBackgroundColor:'rgba(34,197,94,0.85)'},
-        {label:'Expenses (logged)',data:expenses,backgroundColor:'rgba(245,101,101,0.55)',borderRadius:5,borderSkipped:false,hoverBackgroundColor:'rgba(245,101,101,0.75)'}
+        {label:'Income (rent collected)',data:income,backgroundColor:'#2563eb',borderRadius:4,borderSkipped:false,hoverBackgroundColor:'#1d4ed8',maxBarThickness:22},
+        {label:'Expenses (logged)',data:expenses,backgroundColor:'#cbd5e1',borderRadius:4,borderSkipped:false,hoverBackgroundColor:'#94a3b8',maxBarThickness:22}
       ]
     },
     options:{
-      plugins:{legend:{position:'bottom',labels:{font:{size:11,family:'Inter'},color:'#5e5e7a',padding:18,usePointStyle:true,pointStyleWidth:8}}},
+      plugins:{legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},color:'#6b7280',padding:18,usePointStyle:true,pointStyleWidth:8}}},
       scales:{
-        y:{ticks:{callback:v=>'฿'+(v/1000).toFixed(0)+'k',font:{size:10,family:'Inter'},color:'#5e5e7a'},grid:{color:'rgba(255,255,255,.05)'},border:{color:'transparent'}},
-        x:{ticks:{font:{size:10,family:'Inter'},color:'#5e5e7a'},grid:{color:'transparent'},border:{color:'transparent'}}
+        y:{ticks:{callback:v=>'฿'+(v/1000).toFixed(0)+'k',font:{size:10,family:'Inter'},color:'#6b7280'},grid:{color:'#f0f1f4'},border:{color:'transparent'}},
+        x:{ticks:{font:{size:10,family:'Inter'},color:'#6b7280'},grid:{color:'transparent'},border:{color:'transparent'}}
       }
     }
   });
@@ -433,7 +433,7 @@ function renderProps(){
   if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="13">No properties found.</td></tr>';return;}
   tbody.innerHTML=list.map(p=>{
     const yld=pct(p.rent*12,p.value);
-    const payBtn=p.status==='Occupied'?`<button class="btn btn-pay btn-xs" onclick="quickPayModal('${p.id}')">💳 Pay</button>`:`<span style="color:var(--muted);font-size:11px">Vacant</span>`;
+    const payBtn=p.status==='Occupied'?`<button class="btn btn-pay btn-xs" onclick="quickPayModal('${p.id}')">Pay</button>`:`<span style="color:var(--muted);font-size:11px">Vacant</span>`;
     const sqm=+p.sqm||0;
     const camRate=+p.camRate||0;
     const totalCam=sqm*camRate;
@@ -580,7 +580,7 @@ function openGenerateModal(){
         </tbody>
       </table>
     </div>
-    ${existing2026>0?`<div class="alert yellow" style="margin-bottom:14px">⚠ ${existing2026} payment record(s) for 2026 already exist. These will be removed and replaced with fresh records.</div>`:''}
+    ${existing2026>0?`<div class="alert yellow" style="margin-bottom:14px">${existing2026} payment record(s) for 2026 already exist. These will be removed and replaced with fresh records.</div>`:''}
     <p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Each property gets one <span style="color:var(--green);font-weight:600">Paid</span> record per month, due on the 1st (or 15th for Ploy Suwan / Asoke), using your <strong>live rent amounts</strong>.</p>
     <label style="display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text-2);cursor:pointer">
       <input type="checkbox" id="gen-inc" checked style="width:15px;height:15px;accent-color:var(--accent)">
@@ -588,7 +588,7 @@ function openGenerateModal(){
     </label>
   `;
 
-  document.getElementById('modal-title').textContent='⚡ Generate Jan–May 2026 Payments';
+  document.getElementById('modal-title').textContent='Generate Jan–May 2026 Payments';
   document.getElementById('modal-body').innerHTML=previewHtml;
   document.getElementById('modal-save').textContent='✓ Generate All Payments';
   document.getElementById('modal-save').onclick=()=>executeGenerate(rows, months);
@@ -628,7 +628,7 @@ function executeGenerate(rows, months){
   }
 
   closeModal();
-  document.getElementById('modal-save').textContent='💾 Save';
+  document.getElementById('modal-save').textContent='Save';
   document.getElementById('modal-save').onclick=null;
 
   toast(`Generated ${newRecords.length} paid records for Jan–May 2026`,'success');
@@ -665,7 +665,7 @@ function quickPayModal(propId){
         <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Monthly Rent</div>
       </div>
     </div>
-    ${alreadyPaid?`<div class="alert yellow" style="margin-bottom:16px">⚠ A paid entry already exists for ${monthName}. This will add another record — confirm only if it's a different payment.</div>`:''}
+    ${alreadyPaid?`<div class="alert yellow" style="margin-bottom:16px">A paid entry already exists for ${monthName}. This will add another record — confirm only if it's a different payment.</div>`:''}
     <div class="fgrid">
       <div class="fg">
         <label>Paid Date</label>
@@ -721,7 +721,7 @@ function executeQuickPay(propId,tenantId){
 
   closeModal();
   // Reset save button back to default
-  document.getElementById('modal-save').textContent='💾 Save';
+  document.getElementById('modal-save').textContent='Save';
   document.getElementById('modal-save').onclick=null;
 
   const p=getData('properties').find(x=>x.id===propId)||{name:propId};
@@ -745,7 +745,7 @@ function renderTenants(){
     const d=daysUntil(t.leaseEnd);
     const leaseCell=d!==null&&d<=60?`<strong>${fmtD(t.leaseEnd)}</strong> ${daysPill(d)}`:fmtD(t.leaseEnd);
     const depBadge=t.depositStatus==='Pending'?'<span class="badge b-yellow">Pending</span>':t.depositStatus==='Refunded'?'<span class="badge b-gray">Refunded</span>':'<span class="badge b-blue">Active</span>';
-    return`<tr><td><strong style="color:var(--accent)">${t.id}</strong></td><td><strong>${t.name}</strong></td><td style="color:var(--muted)">${t.nickname||'—'}</td><td>${p.name}</td><td>${t.phone}</td><td style="font-size:11px;color:var(--muted)">${t.email}</td><td>${fmtD(t.leaseStart)}</td><td>${leaseCell}</td><td>${fmt(t.deposit)}</td><td><span class="stars">${stars(+t.rating)}</span></td><td>${depBadge}</td><td>${t.checklist==='Yes'?'✅':'❌'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('ten','${t.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('tenants','${t.id}',renderTenants)">Del</button></td></tr>`;
+    return`<tr><td><strong style="color:var(--accent)">${t.id}</strong></td><td><strong>${t.name}</strong></td><td style="color:var(--muted)">${t.nickname||'—'}</td><td>${p.name}</td><td>${t.phone}</td><td style="font-size:11px;color:var(--muted)">${t.email}</td><td>${fmtD(t.leaseStart)}</td><td>${leaseCell}</td><td>${fmt(t.deposit)}</td><td><span class="stars">${stars(+t.rating)}</span></td><td>${depBadge}</td><td>${t.checklist==='Yes'?'<span class="badge b-green">Done</span>':'<span class="badge b-gray">Not yet</span>'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('ten','${t.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('tenants','${t.id}',renderTenants)">Del</button></td></tr>`;
   }).join('');
   initTableSort('ten-body');
 }
@@ -791,7 +791,7 @@ function renderMaint(){
     const repeat=all.filter(x=>x.propId===m.propId&&x.issue===m.issue).length>1;
     const dOpen=m.status==='Resolved'&&m.resolved?Math.round((new Date(m.resolved)-new Date(m.reported))/86400000):Math.round((today()-new Date(m.reported))/86400000);
     const p=getData('properties').find(x=>x.id===m.propId)||{name:m.propId};
-    return`<tr><td><strong style="color:var(--accent)">${m.id}</strong></td><td>${p.name}</td><td>${m.issue}</td><td>${fmtD(m.reported)}</td><td>${fmtD(m.resolved)}</td><td>${m.cost?fmt(m.cost):'—'}</td><td>${statusBadge(m.status)}</td><td>${dOpen}d</td><td>${repeat?'<span class="badge b-orange">⚠ Repeat</span>':'—'}</td><td>${m.contractor||'—'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('maint','${m.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('maintenance','${m.id}',renderMaint)">Del</button></td></tr>`;
+    return`<tr><td><strong style="color:var(--accent)">${m.id}</strong></td><td>${p.name}</td><td>${m.issue}</td><td>${fmtD(m.reported)}</td><td>${fmtD(m.resolved)}</td><td>${m.cost?fmt(m.cost):'—'}</td><td>${statusBadge(m.status)}</td><td>${dOpen}d</td><td>${repeat?'<span class="badge b-orange">Repeat</span>':'—'}</td><td>${m.contractor||'—'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('maint','${m.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('maintenance','${m.id}',renderMaint)">Del</button></td></tr>`;
   }).join('');
   initTableSort('maint-body');
 }
@@ -806,7 +806,7 @@ function renderDates(){
   if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="8">No dates to show.</td></tr>';return;}
   tbody.innerHTML=list.map(k=>{
     const d=daysUntil(k.date);
-    const st=d===null?'—':d<0?'<span class="badge b-red">⚠ Overdue</span>':d<=k.reminder?'<span class="badge b-orange">🔔 Due Soon</span>':'<span class="badge b-green">OK</span>';
+    const st=d===null?'—':d<0?'<span class="badge b-red">Overdue</span>':d<=k.reminder?'<span class="badge b-orange">Due Soon</span>':'<span class="badge b-green">OK</span>';
     const rowCls=d!==null&&d<0?'kd-overdue':d!==null&&d<=k.reminder?'kd-soon':'';
     return`<tr class="${rowCls}"><td>${fmtD(k.date)}</td><td><span class="badge b-blue">${k.type}</span></td><td>${k.propId==='ALL'?'All':propName(k.propId)}</td><td>${k.desc}</td><td>${k.reminder}d</td><td>${daysPill(d)}</td><td>${st}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('date','${k.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('keyDates','${k.id}',renderDates)">Del</button></td></tr>`;
   }).join('');
@@ -826,7 +826,7 @@ function renderExpenses(){
   tbody.innerHTML=filtered.map(e=>{
     const ov=e.amount-e.budget;
     const ovCell=ov>0?`<span style="color:var(--red)">+${fmt(ov)}</span>`:ov<0?`<span style="color:var(--green)">${fmt(ov)}</span>`:'—';
-    return`<tr><td><strong style="color:var(--accent)">${e.id}</strong></td><td>${propName(e.propId)}</td><td>${fmtD(e.date)}</td><td><span class="badge b-blue">${e.category}</span></td><td>${e.desc}</td><td>${fmt(e.amount)}</td><td>${fmt(e.budget)}</td><td>${ovCell}</td><td>${e.recurring==='Yes'?'✅ Yes':'—'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('exp','${e.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('expenses','${e.id}',renderExpenses)">Del</button></td></tr>`;
+    return`<tr><td><strong style="color:var(--accent)">${e.id}</strong></td><td>${propName(e.propId)}</td><td>${fmtD(e.date)}</td><td><span class="badge b-blue">${e.category}</span></td><td>${e.desc}</td><td>${fmt(e.amount)}</td><td>${fmt(e.budget)}</td><td>${ovCell}</td><td>${e.recurring==='Yes'?'<span class="badge b-gray">Recurring</span>':'—'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('exp','${e.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('expenses','${e.id}',renderExpenses)">Del</button></td></tr>`;
   }).join('');
   document.getElementById('exp-total').textContent=fmt(filtered.reduce((s,e)=>s+(+e.amount),0));
   document.getElementById('exp-budget').textContent=fmt(filtered.reduce((s,e)=>s+(+e.budget),0));
@@ -1039,7 +1039,7 @@ function openModal(type,id){
   const cfg=MODAL_CONFIGS[type];
   const rec=id?getData(cfg.key).find(x=>x.id===id):null;
   const autoId=(!id&&AUTO_ID[type])?nextSeqId(...AUTO_ID[type]):'';
-  document.getElementById('modal-title').textContent=(id?'✏️ Edit ':'＋ Add ')+cfg.title;
+  document.getElementById('modal-title').textContent=(id?'Edit ':'Add ')+cfg.title;
   const body=document.getElementById('modal-body');
   body.innerHTML=`<div class="fgrid">${cfg.fields.map(f=>{
     const val=rec?(rec[f.id]??''):(f.id==='id'?autoId:'');
@@ -1059,7 +1059,7 @@ function openModal(type,id){
     return`<div class="${cls}"><label>${f.label}</label><input id="mf_${f.id}" type="${f.type||'text'}" value="${val}" placeholder="${f.ph||''}" ${f.req?'required':''}></div>`;
   }).join('')}</div>`;
   const saveBtn=document.getElementById('modal-save');
-  saveBtn.textContent='💾 Save';
+  saveBtn.textContent='Save';
   saveBtn.onclick=saveModal;
   document.getElementById('modal-overlay').classList.add('open');
 }
@@ -1096,7 +1096,7 @@ function initTableSort(tbodyId){
   if(!table)return;
   table.querySelectorAll('thead th').forEach((th,colIdx)=>{
     const txt=th.textContent.trim();
-    if(txt==='Actions'||txt==='📎 File')return;
+    if(txt==='Actions'||txt==='File')return;
     th.classList.add('sortable');
     th.onclick=()=>{
       const dir=th.dataset.sortDir==='1'?-1:1;
@@ -1111,8 +1111,8 @@ function initTableSort(tbodyId){
       th.appendChild(arrow);
       const rows=Array.from(tbody.querySelectorAll('tr:not(.empty)'));
       rows.sort((a,b)=>{
-        const av=(a.cells[colIdx]?.textContent||'').trim().replace(/[฿,★☆✅❌⚠📎]/g,'').replace(/\s+/g,' ').trim();
-        const bv=(b.cells[colIdx]?.textContent||'').trim().replace(/[฿,★☆✅❌⚠📎]/g,'').replace(/\s+/g,' ').trim();
+        const av=(a.cells[colIdx]?.textContent||'').trim().replace(/[฿,★☆]/g,'').replace(/\s+/g,' ').trim();
+        const bv=(b.cells[colIdx]?.textContent||'').trim().replace(/[฿,★☆]/g,'').replace(/\s+/g,' ').trim();
         const an=parseFloat(av),bn=parseFloat(bv);
         if(!isNaN(an)&&!isNaN(bn))return(an-bn)*dir;
         return av.localeCompare(bv,undefined,{numeric:true,sensitivity:'base'})*dir;
@@ -1134,7 +1134,7 @@ function attachFile(id){
     toast('Uploading '+file.name+'…','success');
     try{
       await PM.uploadFile(id,file);
-      toast('📎 Attached: '+file.name,'success');
+      toast('Attached: '+file.name,'success');
     }catch(e){toast('Upload failed — '+(e.message||e),'error');}
   };
   input.click();
@@ -1151,9 +1151,9 @@ async function removeFile(id){
 function fileCell(id){
   const f=PM.files()[id];
   if(f){
-    return`<span style="color:var(--green);font-size:11px;white-space:nowrap">📄 ${escHtml(f.name)}</span><br><button class="btn btn-xs btn-secondary" onclick="viewFile('${id}')">View</button> <button class="btn btn-xs btn-danger" onclick="removeFile('${id}')">✕</button>`;
+    return`<span style="color:var(--green);font-size:11px;white-space:nowrap">${escHtml(f.name)}</span><br><button class="btn btn-xs btn-secondary" onclick="viewFile('${id}')">View</button> <button class="btn btn-xs btn-danger" onclick="removeFile('${id}')">✕</button>`;
   }
-  return`<button class="btn btn-xs btn-secondary" onclick="attachFile('${id}')">📎 Attach</button>`;
+  return`<button class="btn btn-xs btn-secondary" onclick="attachFile('${id}')">Attach</button>`;
 }
 
 /* ══ CLEAR SECTION ══ */
@@ -1172,18 +1172,18 @@ function clearSection(key, renderFn, btnEl){
     if(['properties','tenants','payments','maintenance','keyDates','expenses'].includes(key))renderDashboard();
     toast('All records cleared','success');
     btnEl.dataset.confirm='';
-    btnEl.textContent=key==='income'?'🗑 Reset Income Data':'🗑 Clear All';
+    btnEl.textContent=key==='income'?'Reset Income Data':'Clear All';
     btnEl.classList.remove('btn-danger');btnEl.classList.add('btn-secondary');
     clearTimeout(btnEl._clearTimer);
   } else {
     // First click — arm the button
     btnEl.dataset.confirm='pending';
-    btnEl.textContent='⚠ Confirm? Click again';
+    btnEl.textContent='Confirm? Click again';
     btnEl.classList.add('btn-danger');btnEl.classList.remove('btn-secondary');
     btnEl._clearTimer=setTimeout(()=>{
       if(btnEl.dataset.confirm==='pending'){
         btnEl.dataset.confirm='';
-        btnEl.textContent=key==='income'?'🗑 Reset Income Data':'🗑 Clear All';
+        btnEl.textContent=key==='income'?'Reset Income Data':'Clear All';
         btnEl.classList.remove('btn-danger');btnEl.classList.add('btn-secondary');
       }
     },4000);
@@ -1227,7 +1227,7 @@ function renderReminders(){
       let d = new Date(today.getFullYear(), today.getMonth(), rentDay);
       if(d < today) d = new Date(today.getFullYear(), today.getMonth()+1, rentDay);
       const diff = Math.round((d - today) / 86400000);
-      if(diff <= WINDOW) items.push({prop:p, type:'Rent Collection', icon:'💰', date:d, diff});
+      if(diff <= WINDOW) items.push({prop:p, type:'Rent Collection', icon:'', date:d, diff});
     }
     // Meter reading — for all occupied properties with a read day set
     const readDay = +p.meterReadDay || 0;
@@ -1235,7 +1235,7 @@ function renderReminders(){
       let d = new Date(today.getFullYear(), today.getMonth(), readDay);
       if(d < today) d = new Date(today.getFullYear(), today.getMonth()+1, readDay);
       const diff = Math.round((d - today) / 86400000);
-      if(diff <= WINDOW) items.push({prop:p, type:'⚡ Meter Reading', icon:'⚡', date:d, diff});
+      if(diff <= WINDOW) items.push({prop:p, type:'Meter Reading', icon:'', date:d, diff});
     }
   });
 
@@ -1253,7 +1253,7 @@ function renderReminders(){
     const dateStr = item.date.toISOString().split('T')[0];
     return `<tr>
       <td><strong>${escHtml(item.prop.name)}</strong></td>
-      <td>${item.icon} ${item.type === '⚡ Meter Reading' ? 'Meter Reading' : item.type}</td>
+      <td>${item.icon} ${item.type === 'Meter Reading' ? 'Meter Reading' : item.type}</td>
       <td>${fmtD(dateStr)}</td>
       <td><span class="badge ${cls}">${lbl}</span></td>
     </tr>`;
@@ -1292,7 +1292,7 @@ function renderYTD(){
 
   // Update title year
   const titleEl = document.getElementById('ytd-title');
-  if(titleEl) titleEl.textContent = `💰 ${curYear} — Payments Collected Year to Date`;
+  if(titleEl) titleEl.textContent = `${curYear} — Payments Collected Year to Date`;
 
   // KPI strip
   ytdKpis.innerHTML = `
