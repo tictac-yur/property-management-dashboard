@@ -1,0 +1,409 @@
+<div class="app">
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-top">
+      <div class="sb-icon">🏢</div>
+      <div class="sb-brand-text">
+        <div class="sb-brand-title">PropManager</div>
+        <div class="sb-brand-sub">Thailand Portfolio</div>
+      </div>
+      <button class="sb-toggle" id="sbToggle" onclick="toggleSidebar()" title="Toggle sidebar">◀</button>
+    </div>
+
+    <nav class="sb-nav">
+      <div class="sb-section-hdr">Overview</div>
+      <div class="nav-item active" data-t="dash"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span></div>
+
+      <div class="sb-section-hdr">Portfolio</div>
+      <div class="nav-item" data-t="props"><span class="nav-icon">🏢</span><span class="nav-label">Properties</span></div>
+      <div class="nav-item" data-t="ten"><span class="nav-icon">👥</span><span class="nav-label">Tenants</span></div>
+      <div class="nav-item" data-t="rent"><span class="nav-icon">💳</span><span class="nav-label">Rent Payments</span></div>
+      <div class="nav-item" data-t="cal"><span class="nav-icon">📆</span><span class="nav-label">Rent Calendar</span></div>
+
+      <div class="sb-section-hdr">Operations</div>
+      <div class="nav-item" data-t="maint"><span class="nav-icon">🔧</span><span class="nav-label">Maintenance</span><span class="nav-badge warn" id="nb-maint" style="display:none"></span></div>
+      <div class="nav-item" data-t="dates"><span class="nav-icon">📅</span><span class="nav-label">Key Dates</span><span class="nav-badge" id="nb-dates" style="display:none"></span></div>
+      <div class="nav-item" data-t="exp"><span class="nav-icon">💸</span><span class="nav-label">Expenses</span></div>
+
+      <div class="sb-section-hdr">Finance</div>
+      <div class="nav-item" data-t="inc"><span class="nav-icon">📊</span><span class="nav-label">Income Summary</span></div>
+      <div class="nav-item" data-t="loans"><span class="nav-icon">🏦</span><span class="nav-label">Loans</span></div>
+
+      <div class="sb-section-hdr">Records</div>
+      <div class="nav-item" data-t="docs"><span class="nav-icon">📄</span><span class="nav-label">Documents</span><span class="nav-badge blue" id="nb-docs" style="display:none"></span></div>
+      <div class="nav-item" data-t="contracts"><span class="nav-icon">📋</span><span class="nav-label">Contracts</span></div>
+      <div class="nav-item" data-t="contacts"><span class="nav-icon">📞</span><span class="nav-label">Contacts</span></div>
+      <div class="nav-item" data-t="contractors"><span class="nav-icon">🔨</span><span class="nav-label">Contractors</span></div>
+
+      <div class="sb-section-hdr">Website</div>
+      <div class="nav-item" data-t="listings"><span class="nav-icon">🏷️</span><span class="nav-label">Listings</span></div>
+      <div class="nav-item" data-t="site"><span class="nav-icon">📝</span><span class="nav-label">Site Content</span></div>
+      <div class="nav-item" data-t="inq"><span class="nav-icon">✉️</span><span class="nav-label">Inquiries</span><span class="nav-badge blue" id="nb-inq" style="display:none"></span></div>
+      <div class="nav-item admin-only" data-t="team"><span class="nav-icon">🔐</span><span class="nav-label">Team &amp; Access</span></div>
+    </nav>
+
+    <div class="sb-footer">
+      <div class="sb-footer-text" id="sb-user"></div>
+      <div class="sb-footer-text sb-footer-links">
+        <a href="/" target="_blank" rel="noopener">View website ↗</a>
+        <button type="button" onclick="PM.signOut()">Sign out</button>
+      </div>
+      <div class="sb-footer-text"><span class="sync-dot" id="sync-dot"></span> <span id="sync-lbl">Synced</span> · THB</div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+    <!-- Topbar -->
+    <div class="topbar">
+      <button class="mob-menu" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
+      <div class="topbar-title" id="pageTitle">Dashboard</div>
+      <div class="topbar-kpis">
+        <div class="tkpi"><div class="tkpi-val accent" id="h-props">8</div><div class="tkpi-lbl">Properties</div></div>
+        <div class="tkpi"><div class="tkpi-val" id="h-occ">—</div><div class="tkpi-lbl">Occupancy</div></div>
+        <div class="tkpi"><div class="tkpi-val green" id="h-rent">—</div><div class="tkpi-lbl">Monthly Rent</div></div>
+        <div class="tkpi"><div class="tkpi-val warn" id="h-overdue">—</div><div class="tkpi-lbl">Overdue</div></div>
+      </div>
+    </div>
+
+    <!-- Content area -->
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="panel active" id="p-dash">
+        <div class="alerts" id="dash-alerts"></div>
+        <div id="goal-tracker"></div>
+        <div class="data-bar">
+          <span class="data-bar-lbl">Data backup</span>
+          <button class="btn btn-secondary btn-sm" onclick="exportData()">⬇ Export backup</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-file').click()">⬆ Import / Restore</button>
+          <input type="file" id="import-file" accept="application/json,.json" style="display:none" onchange="importData(this)">
+          <span class="data-bar-hint">Save a copy of everything, or restore from a file — your safety net.</span>
+          <textarea id="backup-text" readonly style="display:none;width:100%;height:120px;margin-top:8px;font-family:monospace;font-size:11px;background:var(--surface);color:var(--text);border:1px solid var(--border2);border-radius:var(--r-sm);padding:8px"></textarea>
+        </div>
+        <div class="cards" id="dash-cards"></div>
+        <div class="dash-grid">
+          <div class="chart-box"><div class="chart-title">Occupancy Rate</div><canvas id="occChart" height="200"></canvas></div>
+          <div class="chart-box"><div class="chart-title">📊 2026 Monthly Income vs Expenses</div><canvas id="incChart" height="200"></canvas></div>
+        </div>
+        <!-- YTD PAYMENTS -->
+        <div class="sec-title" id="ytd-title">💰 2026 — Payments Collected Year to Date</div>
+        <div class="ytd-wrap">
+          <div class="ytd-kpis" id="ytd-kpis"></div>
+          <div class="tbl-wrap" style="margin-top:0;border-top-left-radius:0;border-top-right-radius:0;border-top:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th style="text-align:right">Payments</th>
+                  <th style="text-align:right">Collected</th>
+                  <th style="text-align:right">Running Total</th>
+                  <th>Properties Paid</th>
+                </tr>
+              </thead>
+              <tbody id="ytd-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- UPCOMING REMINDERS -->
+        <div class="sec-title" style="margin-top:24px">🔔 Upcoming Reminders <span style="font-size:12px;font-weight:400;color:var(--muted)">(next 14 days · edit due days in Properties → Edit)</span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Property</th><th>Type</th><th>Due Date</th><th>Status</th></tr></thead>
+            <tbody id="reminders-body"></tbody>
+          </table>
+        </div>
+
+        <div class="sec-title" style="margin-top:24px">⏰ Leases Expiring Within 60 Days</div>
+        <div class="tbl-wrap"><table><thead><tr><th>Tenant ID</th><th>Name</th><th>Property</th><th>Lease End</th><th>Days Left</th><th>Monthly Rent</th><th>Action</th></tr></thead><tbody id="dash-leases"></tbody></table></div>
+
+        <!-- TO-DO LIST -->
+        <div class="sec-title" style="margin-top:24px">✅ To-Do</div>
+        <div class="todo-wrap">
+          <div class="todo-input-row">
+            <input class="fld todo-input" id="todo-input" placeholder="Add a task…" onkeydown="if(event.key==='Enter')addTodo()">
+            <select class="fld todo-pri" id="todo-pri">
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="addTodo()">＋ Add</button>
+          </div>
+          <div id="todo-list"></div>
+          <div id="todo-empty" class="todo-empty" style="display:none">No tasks yet — add one above.</div>
+        </div>
+      </div>
+
+      <!-- PROPERTIES -->
+      <div class="panel" id="p-props">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('prop',null)">＋ Add Property</button>
+          <input class="fld search" id="props-q" placeholder="Search properties…" oninput="renderProps()">
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>ID</th><th>Property Name</th><th>Address</th><th>Type</th><th>Monthly Rent</th><th>Status</th><th>Value (THB)</th><th>Yield %</th><th>Size (sqm)</th><th>CAM/sqm</th><th>Total CAM/mo</th><th>Quick Pay</th><th>Actions</th></tr></thead>
+          <tbody id="props-body"></tbody>
+          <tfoot><tr class="tbl-footer"><td colspan="4">TOTAL / AVG</td><td id="props-total-rent"></td><td id="props-occ"></td><td id="props-total-val"></td><td id="props-avg-yield"></td><td></td><td></td><td id="props-total-cam"></td><td></td><td></td></tr></tfoot>
+        </table></div>
+      </div>
+
+      <!-- TENANTS -->
+      <div class="panel" id="p-ten">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('ten',null)">＋ Add Tenant</button>
+          <input class="fld search" id="ten-q" placeholder="Search tenants…" oninput="renderTenants()">
+          <button class="btn btn-secondary" id="btn-clear-ten" onclick="clearSection('tenants',renderTenants,this)">🗑 Clear All</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>ID</th><th>Name</th><th>Nickname</th><th>Property</th><th>Phone</th><th>Email</th><th>Lease Start</th><th>Lease End</th><th>Deposit (THB)</th><th>Rating</th><th>Deposit Status</th><th>Checklist</th><th>Actions</th></tr></thead>
+          <tbody id="ten-body"></tbody>
+        </table></div>
+      </div>
+
+      <!-- RENT PAYMENTS -->
+      <div class="panel" id="p-rent">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('pay',null)">＋ Add Payment</button>
+          <button class="btn btn-pay" onclick="openGenerateModal()" title="Auto-generate paid records for all occupied properties using your live data">⚡ Generate 2026 Payments</button>
+          <select class="fld" id="rent-filter" onchange="renderPayments()">
+            <option value="all">All payments</option>
+            <option value="Unpaid">Unpaid only</option>
+            <option value="Paid">Paid only</option>
+          </select>
+          <input class="fld search" id="rent-q" placeholder="Search tenant/property…" oninput="renderPayments()">
+          <button class="btn btn-secondary" id="btn-clear-rent" onclick="clearSection('payments',renderPayments,this)">🗑 Clear All</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>ID</th><th>Tenant</th><th>Property</th><th>Due Date</th><th>Amount (THB)</th><th>Paid Date</th><th>Status</th><th>Days Overdue</th><th>Late Fee (THB)</th><th>Actions</th></tr></thead>
+          <tbody id="rent-body"></tbody>
+          <tfoot><tr class="tbl-footer"><td colspan="4">TOTALS</td><td id="rent-total"></td><td></td><td id="rent-unpaid-count"></td><td></td><td id="rent-fees"></td><td></td></tr></tfoot>
+        </table></div>
+      </div>
+
+      <!-- RENT CALENDAR -->
+      <div class="panel" id="p-cal">
+        <div class="toolbar">
+          <button class="btn btn-secondary btn-sm" onclick="calYear(-1)">‹ Prev</button>
+          <span id="cal-year" style="font-weight:600;font-size:14px;min-width:54px;text-align:center"></span>
+          <button class="btn btn-secondary btn-sm" onclick="calYear(1)">Next ›</button>
+          <button class="btn btn-pay btn-sm" onclick="openGenerateModal()" title="Auto-create paid records for all occupied units">⚡ Generate Payments</button>
+          <span class="cal-legend">
+            <span><span class="cal-dot cal-paid"></span> Collected</span>
+            <span><span class="cal-dot cal-due"></span> Uncollected / overdue</span>
+            <span><span class="cal-dot cal-future"></span> Not yet due</span>
+          </span>
+        </div>
+        <div class="tbl-wrap" id="cal-table"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px">Tip: click any month cell to toggle it collected / uncollected. The number in each cell is that unit's rent due day.</div>
+      </div>
+
+      <!-- MAINTENANCE -->
+      <div class="panel" id="p-maint">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('maint',null)">＋ Log Issue</button>
+          <select class="fld" id="maint-filter" onchange="renderMaint()">
+            <option value="open">Open only</option>
+            <option value="all">All issues</option>
+            <option value="Resolved">Resolved only</option>
+          </select>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Issue ID</th><th>Property</th><th>Description</th><th>Reported</th><th>Resolved</th><th>Cost (THB)</th><th>Status</th><th>Days Open</th><th>Repeat?</th><th>Contractor</th><th>Actions</th></tr></thead>
+          <tbody id="maint-body"></tbody>
+        </table></div>
+      </div>
+
+      <!-- KEY DATES -->
+      <div class="panel" id="p-dates">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('date',null)">＋ Add Date</button>
+          <select class="fld" id="dates-filter" onchange="renderDates()">
+            <option value="all">All dates</option>
+            <option value="urgent">Overdue &amp; Due Soon</option>
+            <option value="Lease Renewal">Lease Renewals</option>
+            <option value="Insurance Renewal">Insurance</option>
+            <option value="Tax Filing">Tax</option>
+          </select>
+          <button class="btn btn-secondary" id="btn-clear-dates" onclick="clearSection('keyDates',renderDates,this)">🗑 Clear All</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Date</th><th>Event Type</th><th>Property</th><th>Description</th><th>Reminder</th><th>Days Until</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="dates-body"></tbody>
+        </table></div>
+      </div>
+
+      <!-- EXPENSES -->
+      <div class="panel" id="p-exp">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('exp',null)">＋ Add Expense</button>
+          <button class="btn btn-secondary" onclick="openFeeModal('agent')">🧾 Charge Agent Fee</button>
+          <button class="btn btn-secondary" onclick="openFeeModal('cam')">🏢 Log CAM Fee</button>
+          <select class="fld" id="exp-filter" onchange="renderExpenses()">
+            <option value="all">All properties</option>
+          </select>
+          <button class="btn btn-secondary" id="btn-clear-exp" onclick="clearSection('expenses',renderExpenses,this)">🗑 Clear All</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>ID</th><th>Property</th><th>Date</th><th>Category</th><th>Description</th><th>Amount (THB)</th><th>Budget (THB)</th><th>Over/Under</th><th>Recurring</th><th>Actions</th></tr></thead>
+          <tbody id="exp-body"></tbody>
+          <tfoot><tr class="tbl-footer"><td colspan="5">TOTAL</td><td id="exp-total"></td><td id="exp-budget"></td><td id="exp-var"></td><td></td><td></td></tr></tfoot>
+        </table></div>
+      </div>
+
+      <!-- INCOME SUMMARY -->
+      <div class="panel" id="p-inc">
+        <div class="toolbar">
+          <button class="btn btn-secondary" id="btn-clear-inc" onclick="clearSection('income',renderIncome,this)">🗑 Reset Income Data</button>
+          <span class="inc-hint">💡 Click any value cell to edit it inline</span>
+        </div>
+        <div class="sec-title">💰 2026 Monthly Performance (Jan – May logged)</div>
+        <div class="inc-wrap"><table id="inc-tbl-2026"></table></div>
+        <div class="sec-title" style="margin-top:24px">📅 2025 Full Year</div>
+        <div class="inc-wrap"><table id="inc-tbl-2025"></table></div>
+        <div class="sec-title" style="margin-top:24px">📅 2024 Full Year</div>
+        <div class="inc-wrap"><table id="inc-tbl-2024"></table></div>
+        <div class="sec-title" style="margin-top:24px">📈 ROI % per Property</div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Property ID</th><th>Property Name</th><th>Annual Rent (THB)</th><th>Annual Expenses (THB)</th><th>Net Income (THB)</th><th>Property Value (THB)</th><th>ROI %</th><th>Gross Yield %</th></tr></thead>
+          <tbody id="roi-body"></tbody>
+        </table></div>
+      </div>
+
+      <!-- LOANS -->
+      <div class="panel" id="p-loans">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('loan',null)">＋ Add Loan</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Loan ID</th><th>Property</th><th>Bank</th><th>Loan Amount (THB)</th><th>Interest Rate %</th><th>Monthly Payment (THB)</th><th>Start Date</th><th>End Date</th><th>Outstanding (THB)</th><th>Actions</th></tr></thead>
+          <tbody id="loans-body"></tbody>
+          <tfoot><tr class="tbl-footer"><td colspan="3">TOTAL</td><td id="loans-total-amt"></td><td></td><td id="loans-total-mo"></td><td colspan="2"></td><td id="loans-total-bal"></td><td></td></tr></tfoot>
+        </table></div>
+      </div>
+
+      <!-- DOCUMENTS -->
+      <div class="panel" id="p-docs">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('doc',null)">＋ Add Document</button>
+          <select class="fld" id="docs-filter" onchange="renderDocs()">
+            <option value="all">All documents</option>
+            <option value="expiring">Expiring / Expired</option>
+          </select>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Doc ID</th><th>Property</th><th>Doc Type</th><th>Issue Date</th><th>Expiry Date</th><th>Days Until Expiry</th><th>📎 File</th><th>Actions</th></tr></thead>
+          <tbody id="docs-body"></tbody>
+        </table></div>
+      </div>
+
+      <!-- CONTRACTS -->
+      <div class="panel" id="p-contracts">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('contract',null)">＋ Add Contract</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Contract ID</th><th>Property</th><th>Tenant</th><th>Type</th><th>Start</th><th>End</th><th>Value (THB)</th><th>Status</th><th>📎 File</th><th>Actions</th></tr></thead>
+          <tbody id="contracts-body"></tbody>
+        </table></div>
+      </div>
+
+      <!-- CONTACTS -->
+      <div class="panel" id="p-contacts">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('contact',null)">＋ Add Contact</button>
+          <input class="fld search" id="contacts-q" placeholder="Search contacts…" oninput="renderContacts()">
+          <button class="btn btn-secondary" id="btn-clear-contacts" onclick="clearSection('contacts',renderContacts,this)">🗑 Clear All</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Company</th><th>Phone</th><th>Email</th><th>Property</th><th>Notes</th><th>Actions</th></tr></thead>
+          <tbody id="contacts-body"></tbody>
+        </table></div>
+      </div>
+
+      <!-- CONTRACTORS -->
+      <div class="panel" id="p-contractors">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openModal('contractor',null)">＋ Add Contractor</button>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Name</th><th>Company</th><th>Specialty</th><th>Phone</th><th>Email</th><th>Rating</th><th>Last Used</th><th>Actions</th></tr></thead>
+          <tbody id="contractors-body"></tbody>
+        </table></div>
+      </div>
+
+      <!-- WEBSITE · LISTINGS -->
+      <div class="panel" id="p-listings">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="openListingModal(null)">＋ Add Listing</button>
+          <button class="btn btn-secondary" onclick="listingsFromProperties()" title="Create unpublished draft listings for properties that don't have one yet">⇣ Draft from Properties</button>
+          <a class="btn btn-secondary" href="/" target="_blank" rel="noopener">View website ↗</a>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Photo</th><th>Title</th><th>Property</th><th>Type</th><th>Rent (THB)</th><th>Size</th><th>Availability</th><th>On Website</th><th>Actions</th></tr></thead>
+          <tbody id="listings-body"></tbody>
+        </table></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px">Only listings switched <strong>On</strong> are visible on the public website. Tenant names, phone numbers and finances are never shown publicly.</div>
+      </div>
+
+      <!-- WEBSITE · SITE CONTENT -->
+      <div class="panel" id="p-site">
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="saveSiteContent()">💾 Save &amp; Publish</button>
+          <a class="btn btn-secondary" href="/" target="_blank" rel="noopener">View website ↗</a>
+        </div>
+        <div class="site-form" id="site-form"></div>
+      </div>
+
+      <!-- WEBSITE · INQUIRIES -->
+      <div class="panel" id="p-inq">
+        <div class="toolbar">
+          <select class="fld" id="inq-filter" onchange="renderInquiries()">
+            <option value="open">New &amp; Contacted</option>
+            <option value="all">All inquiries</option>
+            <option value="Closed">Closed only</option>
+          </select>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Received</th><th>Name</th><th>Contact</th><th>Listing</th><th>Message</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="inq-body"></tbody>
+        </table></div>
+      </div>
+
+      <!-- WEBSITE · TEAM -->
+      <div class="panel" id="p-team">
+        <div class="alert blue">🔐 Anyone can create an account at <strong>/admin</strong>, but they see nothing until you give them a role here. <strong>Manager</strong> = can use the dashboard and edit the website. <strong>Admin</strong> = also manages this list.</div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Email</th><th>Joined</th><th>Access</th></tr></thead>
+          <tbody id="team-body"></tbody>
+        </table></div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MODALS -->
+<div class="overlay" id="modal-overlay">
+  <div class="modal" id="modal-box">
+    <h3 id="modal-title">Edit</h3>
+    <div id="modal-body"></div>
+    <div class="mfoot">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modal-save">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="overlay" id="fee-overlay">
+  <div class="modal" id="fee-box" style="width:480px">
+    <h3 id="fee-title">Charge Fee</h3>
+    <div id="fee-body"></div>
+    <div class="mfoot">
+      <button class="btn btn-secondary" onclick="closeFeeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveFee()">💾 Log Expense</button>
+    </div>
+  </div>
+</div>
+<div class="toast-container" id="toastContainer"></div>

@@ -1,0 +1,65 @@
+:root {
+  --bg: #09090e;
+  --surface2: #15151e;
+  --surface3: #1c1c27;
+  --border2: rgba(255, 255, 255, 0.11);
+  --text: #eeeef5;
+  --text-2: #a0a0b8;
+  --muted: #5e5e7a;
+  --accent: #5b8df8;
+  --red: #f56565;
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.auth-page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  background: radial-gradient(90% 60% at 50% 0, rgba(91, 141, 248, 0.12), transparent 70%), var(--bg);
+}
+.auth-splash { color: var(--muted); font-size: 14px; }
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  padding: 28px 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+}
+.auth-brand { display: flex; align-items: center; gap: 12px; }
+.auth-icon {
+  width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; background: linear-gradient(135deg, #1e3a72, #2c5fd4);
+}
+.auth-title { font-weight: 600; font-size: 15px; }
+.auth-sub { font-size: 12px; color: var(--muted); }
+.auth-card h1 { font-size: 20px; margin: 6px 0 0; letter-spacing: -0.01em; }
+.auth-card label { display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+.auth-card input {
+  background: var(--surface3); border: 1px solid var(--border2); border-radius: 8px; color: var(--text);
+  padding: 11px 12px; font: inherit; font-size: 15px; text-transform: none; letter-spacing: 0; font-weight: 400;
+}
+.auth-card input:focus { outline: none; border-color: var(--accent); }
+.auth-btn {
+  background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 12px; font: inherit;
+  font-weight: 600; font-size: 14px; cursor: pointer; margin-top: 4px;
+}
+.auth-btn:disabled { opacity: 0.6; cursor: default; }
+.auth-link { background: none; border: none; color: var(--text-2); font: inherit; font-size: 13px; cursor: pointer; text-align: center; text-decoration: none; }
+.auth-link:hover { color: var(--accent); }
+.auth-error { color: var(--red); font-size: 13px; }
+.auth-text { color: var(--text-2); font-size: 14px; line-height: 1.55; margin: 0; }
