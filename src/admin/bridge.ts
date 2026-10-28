@@ -67,17 +67,26 @@ export function createBridge(client: ConvexReactClient, me: Me, signOut: () => P
             ? plain(lastServer.settings[key])
             : (lastServer.collections[key] ?? []).map(plain);
         }
-        (window as unknown as { toast?: (m: string, t: string) => void }).toast?.("You have view-only access", "error");
+        toast("You have view-only access");
         queueMicrotask(() => bridge.onChange?.());
         return;
       }
       if (Array.isArray(value)) {
+        // Every record needs an ID to be stored; give one to any that arrive without (e.g. old imports).
+        for (const item of value as Record<string, unknown>[]) {
+          if (item && typeof item === "object" && !String(item.id ?? "")) {
+            item.id = "X" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          }
+        }
         const prev = synced[key] ?? new Map<string, string>();
         const next = new Map<string, string>();
         const upserts: unknown[] = [];
         for (const item of plain(value) as Record<string, unknown>[]) {
           const rid = String(item?.id ?? "");
           if (!rid) continue;
+          if (next.has(rid)) {
+            toast(`Two records share the ID ${rid} — only the last one is saved`);
+          }
           const json = stable(item);
           next.set(rid, json);
           if (prev.get(rid) !== json) upserts.push(item);
@@ -139,6 +148,15 @@ export function createBridge(client: ConvexReactClient, me: Me, signOut: () => P
     },
   };
 
+  function toast(msg: string) {
+    (window as unknown as { toast?: (m: string, t: string) => void }).toast?.(msg, "error");
+  }
+
+  // Closing the page while a save is still on its way would lose it.
+  window.addEventListener?.("beforeunload", (e) => {
+    if (inFlight) e.preventDefault();
+  });
+
   function setSyncStatus() {
     const dot = document.getElementById("sync-dot");
     const lbl = document.getElementById("sync-lbl");
@@ -155,7 +173,7 @@ export function createBridge(client: ConvexReactClient, me: Me, signOut: () => P
       const msg = String(e?.message ?? e).includes("access")
         ? "You don't have permission to change this"
         : "Couldn't save — check your connection";
-      (window as unknown as { toast?: (m: string, t: string) => void }).toast?.(msg, "error");
+      toast(msg);
     }).finally(() => {
       pending[key]--;
       inFlight--;

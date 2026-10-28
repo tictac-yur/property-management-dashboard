@@ -942,6 +942,7 @@ function delItem(key,id,cb){
   const item=list.find(x=>x.id===id);
   setData(key,list.filter(x=>x.id!==id));
   if(key==='tenants')syncLeaseDates();
+  if((key==='documents'||key==='contracts')&&PM.files()[id])PM.removeFile(id);
   cb();
   if(['properties','tenants','payments','maintenance','expenses'].includes(key))renderDashboard();
   toast(`Deleted ${id}`,'success');
@@ -1075,6 +1076,8 @@ function saveModal(){
     if(f.req&&!obj[f.id]){toast(f.label+' is required.','error');return;}
   }
   const list=getData(cfg.key);
+  obj.id=String(obj.id).trim();
+  if(obj.id!==_modalId&&list.some(x=>x.id===obj.id)){toast('ID '+obj.id+' is already used — pick another','error');return;}
   if(_modalId){const i=list.findIndex(x=>x.id===_modalId);if(i>=0)list[i]=obj;}
   else{list.push(obj);}
   setData(cfg.key,list);
