@@ -63,67 +63,171 @@ if(canEdit&&!PM.get('initialized')){
 function toast(msg,type='success'){
   const el=document.createElement('div');
   el.className=`toast ${type}`;
-  el.innerHTML=`<span>${type==='success'?'✓':'✕'}</span> ${msg}`;
+  el.innerHTML=`<span>${type==='success'?'✓':'!'}</span><span>${escHtml(msg)}</span>`;
   document.getElementById('toastContainer').appendChild(el);
   setTimeout(()=>{el.style.animation='toastOut .3s ease forwards';setTimeout(()=>el.remove(),300)},2800);
 }
 
 /* ══ HELPERS ══ */
-const fmt=(n,dec=0)=>n==null?'—':'฿'+(+n).toLocaleString('en',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+const fmt=(n,dec=0)=>n==null||n===''?'—':'฿'+(+n).toLocaleString('en',{minimumFractionDigits:dec,maximumFractionDigits:dec});
 const fmtN=(n,dec=0)=>n==null?'—':(+n).toLocaleString('en',{minimumFractionDigits:dec,maximumFractionDigits:dec});
-const fmtD=d=>{if(!d)return'—';const p=d.split('-');return p[2]+'/'+p[1]+'/'+p[0]};
+/** Short money for tight spots: ฿8,000 · ฿65.5k · ฿1.2M */
+const fmtK=n=>{n=+n||0;const a=Math.abs(n);if(a>=1e6)return'฿'+(n/1e6).toFixed(a>=1e7?0:1).replace(/\.0$/,'')+'M';if(a>=1e4)return'฿'+(n/1e3).toFixed(a>=1e5?0:1).replace(/\.0$/,'')+'k';return fmt(n);};
+const MONTHS_S=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS_L=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const fmtD=d=>{if(!d)return'—';const p=String(d).split('-');if(p.length<3)return d;return(+p[2])+' '+MONTHS_S[(+p[1])-1]+' '+p[0]};
+const isoDate=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
-const daysUntil=d=>{if(!d)return null;const t=new Date(d);t.setHours(0,0,0,0);return Math.round((t-today())/86400000)};
+const daysUntil=d=>{if(!d)return null;const t=new Date(d);if(isNaN(t))return null;t.setHours(0,0,0,0);return Math.round((t-today())/86400000)};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const propName=id=>(getData('properties').find(p=>p.id===id)||{name:id}).name;
 const tenName=id=>(getData('tenants').find(t=>t.id===id)||{name:id}).name;
 /** a as a % of b, or — when b (e.g. property value) isn't filled in yet */
 const pct=(a,b)=>(+b>0)?(a/b*100).toFixed(2)+'%':'—';
-const stars=n=>'★'.repeat(n)+'☆'.repeat(5-n);
+const stars=n=>{n=Math.max(0,Math.min(5,+n||0));return n?'★'.repeat(n)+'☆'.repeat(5-n):'<span style="color:var(--muted)">—</span>'};
 
-const PAGE_TITLES={dash:'Dashboard',props:'Properties',ten:'Tenants',rent:'Rent Payments',cal:'Rent Calendar',maint:'Maintenance',dates:'Key Dates',exp:'Expenses',inc:'Income Summary',loans:'Loans',docs:'Documents',contracts:'Contracts',contacts:'Contacts',contractors:'Contractors',team:'Team & Access'};
+/** "Lumpini Ville Chaengwatthana - Pakkret Station #8/53 (606)" → {building:"Lumpini Ville Chaengwatthana", unit:"#8/53 (606)"} */
+function splitUnit(name){
+  name=String(name||'');
+  const i=name.indexOf('#');
+  let building=(i>0?name.slice(0,i):name).trim();
+  const unit=i>0?name.slice(i).trim():'';
+  building=building.replace(/\s+-\s+.*$/,'').trim()||building;
+  return {building,unit};
+}
+/** Compact unit label for lists: "Lumpini Ville Chaengwatthana #8/53 (606)" */
+function unitLabel(p){if(!p)return'—';const s=splitUnit(p.name);return s.unit?s.building+' '+s.unit:s.building;}
+function unitById(id){return getData('properties').find(p=>p.id===id);}
+function unitLabelById(id){if(id==='ALL')return'All units';const p=unitById(id);return p?unitLabel(p):(id||'—');}
+/** Tenant display name: English part in brackets if there is one, else the full name */
+function personName(n){n=String(n||'');const m=n.match(/\(([^)]+)\)/);return(m?m[1]:n).replace(/^(Mr|Mrs|Ms|Miss|Dr)\.?\s+/i,'').trim()||n;}
+function personLocal(n){n=String(n||'');const m=n.match(/^(.*?)\s*\(/);return m?m[1].trim():'';}
+function initials(n){const w=personName(n).split(/\s+/).filter(Boolean);return((w[0]||'?')[0]+((w[1]||'')[0]||'')).toUpperCase();}
+const AV_COLORS=['#2f55e4','#13794a','#b4480f','#5b4bb7','#0d6e7d','#a3366b','#6b5a10','#3f5d7d'];
+function avatarColor(s){let h=0;for(const c of String(s||''))h=(h*31+c.charCodeAt(0))>>>0;return AV_COLORS[h%AV_COLORS.length];}
+function avatar(name,cls=''){return`<span class="avatar ${cls}" style="background:${avatarColor(name)}">${escHtml(initials(name))}</span>`;}
+function tenantOf(propId){
+  const list=getData('tenants').filter(t=>t.propId===propId);
+  if(!list.length)return null;
+  // the one whose lease is current (or latest)
+  return list.slice().sort((a,b)=>String(b.leaseEnd||'').localeCompare(String(a.leaseEnd||'')))[0];
+}
+function telLink(ph){if(!ph)return'—';return`<a href="tel:${escHtml(String(ph).replace(/[^\d+]/g,''))}">${escHtml(ph)}</a>`;}
+function mailLink(e){if(!e)return'—';return`<a href="mailto:${escHtml(e)}">${escHtml(e)}</a>`;}
+
+/** Lease progress 0–100 plus a colour class */
+function leaseProgress(t){
+  if(!t||!t.leaseStart||!t.leaseEnd)return null;
+  const s=new Date(t.leaseStart),e=new Date(t.leaseEnd),n=today();
+  if(isNaN(s)||isNaN(e)||e<=s)return null;
+  const p=Math.max(0,Math.min(100,(n-s)/(e-s)*100));
+  const left=daysUntil(t.leaseEnd);
+  return {p,cls:left<0?'over':left<=60?'warn':''};
+}
+function leaseBar(t,style){const lp=leaseProgress(t);return lp?`<div class="lease-bar ${lp.cls}"${style?` style="${style}"`:''}><span style="width:${lp.p.toFixed(0)}%"></span></div>`:'';}
+
+/** This month's rent state for one unit: paid / overdue / due (with days) / none */
+function rentStatus(p,yr,mo){
+  const now=today();
+  if(yr==null){yr=now.getFullYear();mo=now.getMonth();}
+  const ym=yr+'-'+String(mo+1).padStart(2,'0');
+  const recs=getData('payments').filter(x=>x.propId===p.id&&((x.due&&String(x.due).startsWith(ym))||(!x.due&&x.paid&&String(x.paid).startsWith(ym))));
+  const paid=recs.find(x=>x.status==='Paid');
+  const dueDay=Math.min(28,Math.max(1,+p.rentDueDay||1));
+  const dueDate=new Date(yr,mo,dueDay);
+  const diff=Math.round((dueDate-now)/86400000);
+  if(p.status!=='Occupied'||!(+p.rent>0))return{state:'none',dueDate,diff,rec:null};
+  if(paid)return{state:'paid',dueDate,diff,rec:paid,amount:+paid.amount||0};
+  if(diff<0)return{state:'late',dueDate,diff,rec:recs[0]||null};
+  return{state:'due',dueDate,diff,rec:recs[0]||null};
+}
+function rentPill(rs){
+  if(rs.state==='paid')return'<span class="badge b-green">Paid</span>';
+  if(rs.state==='late')return`<span class="badge b-red">${-rs.diff}d late</span>`;
+  if(rs.state==='due')return rs.diff===0?'<span class="badge b-orange">Due today</span>':`<span class="badge b-gray">Due in ${rs.diff}d</span>`;
+  return'<span class="badge b-gray plain">Vacant</span>';
+}
+
+const ICONS={
+  card:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/></svg>',
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/></svg>',
+  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>',
+  wrench:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3.6 17.4a1.4 1.4 0 0 0 2 2l5.7-5.7a4 4 0 0 0 5.4-5.4l-2.4 2.4-2-.6-.6-2z"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>',
+  doc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
+  trend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
+  pie:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+  phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
+};
+
+const PAGE_TITLES={dash:'Dashboard',props:'Properties',ten:'Tenants',rent:'Rent payments',cal:'Rent calendar',maint:'Maintenance',dates:'Key dates',exp:'Expenses',inc:'Income summary',loans:'Loans',docs:'Documents',contracts:'Contracts',contacts:'Contacts',contractors:'Contractors',team:'Team & access'};
+const PAGE_SUBS={dash:'Everything that needs you today',props:'Every unit, its tenant and this month\'s rent',ten:'Who lives where and when their lease ends',rent:'Every rent payment, paid and unpaid',cal:'Which months each unit has paid',maint:'Repairs and issues, open and done',dates:'Renewals, tax and insurance deadlines',exp:'What each unit costs to run',inc:'Income and expenses by month and year',loans:'Mortgages and what is left to pay',docs:'Deeds, insurance and receipts',contracts:'Leases and service contracts',contacts:'Building offices, agents and helpers',contractors:'People who fix things',team:'Who can open this dashboard'};
 
 function statusBadge(s){
-  const m={'Occupied':'b-green','Vacant':'b-purple','Active':'b-green','Expired':'b-red','Paid':'b-green','Unpaid':'b-red','Partial':'b-yellow','Resolved':'b-green','Open':'b-orange','Pending':'b-yellow','In Progress':'b-blue'};
-  return`<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
+  const m={'Occupied':'b-green','Vacant':'b-purple','Active':'b-green','Expired':'b-red','Terminated':'b-gray','Paid':'b-green','Unpaid':'b-red','Partial':'b-yellow','Resolved':'b-green','Open':'b-orange','Pending':'b-yellow','In Progress':'b-blue'};
+  return`<span class="badge ${m[s]||'b-gray'}">${escHtml(s||'—')}</span>`;
 }
 function daysPill(d,label){
   if(label)return`<span class="dpill dpill-gray">${label}</span>`;
   if(d===null)return'—';
   if(d<0)return`<span class="dpill dpill-red">${Math.abs(d)}d overdue</span>`;
-  if(d===0)return`<span class="dpill dpill-red">Today!</span>`;
+  if(d===0)return`<span class="dpill dpill-red">Today</span>`;
   if(d<=14)return`<span class="dpill dpill-red">${d}d</span>`;
   if(d<=30)return`<span class="dpill dpill-orange">${d}d</span>`;
   if(d<=60)return`<span class="dpill dpill-yellow">${d}d</span>`;
   return`<span class="dpill dpill-green">${d}d</span>`;
 }
+function actBtns(type,key,id,render){
+  return`<span class="row-act"><button class="btn btn-secondary btn-xs" onclick="openModal('${type}','${escHtml(id)}')">Edit</button><button class="btn btn-danger btn-xs" onclick="delItem('${key}','${escHtml(id)}',${render})">Delete</button></span>`;
+}
+/** Stat strip above a list: items = [{lbl, val, sub, cls}] */
+function renderStrip(elId,items){
+  const el=document.getElementById(elId); if(!el)return;
+  el.innerHTML=items.map(i=>`<div class="strip-item"><div class="strip-lbl">${i.lbl}</div><div class="strip-val ${i.cls||''}">${i.val}</div>${i.sub?`<div class="strip-sub">${i.sub}</div>`:''}</div>`).join('');
+}
+
+/* ══ THEME ══ */
+function applyTheme(t){document.documentElement.dataset.theme=t;try{localStorage.setItem('pm-theme',t)}catch(e){}}
+(function(){let t=null;try{t=localStorage.getItem('pm-theme')}catch(e){}
+  if(!t)t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+  document.documentElement.dataset.theme=t;})();
+function toggleTheme(){
+  applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+  renderDashboard();
+}
+function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
 
 /* ══ SIDEBAR TOGGLE ══ */
 function toggleSidebar(){
-  const sb=document.getElementById('sidebar');
-  const btn=document.getElementById('sbToggle');
-  sb.classList.toggle('collapsed');
-  btn.textContent=sb.classList.contains('collapsed')?'▶':'◀';
+  document.getElementById('sidebar').classList.toggle('collapsed');
 }
 
 /* ══ NAVIGATION ══ */
-document.querySelectorAll('.nav-item').forEach(item=>{
-  item.onclick=()=>{
-    document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
-    item.classList.add('active');
-    const t=item.dataset.t;
-    document.getElementById('p-'+t).classList.add('active');
-    document.getElementById('pageTitle').textContent=PAGE_TITLES[t]||t;
-    renderPanel(t);
-    if(isPhone())document.getElementById('sidebar').classList.add('collapsed');
-  };
-});
+function goTo(t){
+  const item=document.querySelector('.nav-item[data-t="'+t+'"]');
+  if(!item)return;
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+  item.classList.add('active');
+  document.getElementById('p-'+t).classList.add('active');
+  document.getElementById('pageTitle').textContent=PAGE_TITLES[t]||t;
+  document.getElementById('pageSub').textContent=PAGE_SUBS[t]||'';
+  document.title=(PAGE_TITLES[t]||'Dashboard')+' · PropManager';
+  document.getElementById('content').scrollTop=0;
+  renderPanel(t);
+  if(isPhone())document.getElementById('sidebar').classList.add('collapsed');
+}
+document.querySelectorAll('.nav-item').forEach(item=>{item.onclick=()=>goTo(item.dataset.t);});
 function isPhone(){return window.matchMedia('(max-width: 768px)').matches}
 if(isPhone())document.getElementById('sidebar').classList.add('collapsed');
+function activePanel(){const a=document.querySelector('.nav-item.active');return a?a.dataset.t:'dash';}
 
 function renderPanel(t){
-  const map={props:renderProps,ten:renderTenants,rent:renderPayments,cal:renderCalendar,maint:renderMaint,dates:renderDates,exp:renderExpenses,inc:renderIncome,loans:renderLoans,docs:renderDocs,contracts:renderContracts,contacts:renderContacts,contractors:renderContractors,team:renderTeam};
+  const map={dash:renderDashboard,props:renderProps,ten:renderTenants,rent:renderPayments,cal:renderCalendar,maint:renderMaint,dates:renderDates,exp:renderExpenses,inc:renderIncome,loans:renderLoans,docs:renderDocs,contracts:renderContracts,contacts:renderContacts,contractors:renderContractors,team:renderTeam};
   if(map[t])map[t]();
 }
 
@@ -137,7 +241,7 @@ function openFeeModal(kind){
   if(!props.length){toast('Add a property first','error');return;}
   const isAgent=kind==='agent';
   document.getElementById('fee-title').textContent=isAgent?'Charge Agent Fee':'Log CAM Fee';
-  const opts=props.map(p=>'<option value="'+p.id+'">'+escHtml(p.name)+'</option>').join('');
+  const opts=props.map(p=>'<option value="'+escHtml(p.id)+'">'+escHtml(unitLabel(p))+'</option>').join('');
   const todayStr=new Date().toISOString().slice(0,10);
   const hint=isAgent
     ? 'Amount defaults to one month of rent for the selected unit. Use this when you renew or sign a new contract.'
@@ -208,7 +312,7 @@ function renderCalendar(){
       const stTxt=cls==='cal-paid'?'Collected':(cls==='cal-due'?'Uncollected':'Not yet due');
       cells+='<td style="text-align:center;padding:4px"><div class="cal-cell '+cls+'" title="'+escHtml(p.name)+' — '+months[m]+' '+_calYear+' · '+stTxt+' ('+fmt(+p.rent||0)+')" onclick="calToggle(\''+p.id+'\','+m+')">'+dueDay+'</div></td>';
     }
-    return '<tr><td><strong>'+escHtml(p.name)+'</strong><div style="font-size:10px;color:var(--muted)">'+p.id+'</div></td><td style="text-align:center">'+dueDay+'</td><td style="text-align:right">'+fmt(+p.rent||0)+'</td>'+cells+'</tr>';
+    return '<tr><td class="cell-link" onclick="openProp(\''+p.id+'\')"><div class="cell-main">'+escHtml(unitLabel(p))+'</div><div class="cell-sub">'+escHtml(p.id)+' · '+((tenantOf(p.id)&&personName(tenantOf(p.id).name))||'no tenant')+'</div></td><td style="text-align:center">'+dueDay+'</td><td style="text-align:right">'+fmt(+p.rent||0)+'</td>'+cells+'</tr>';
   }).join('');
   host.innerHTML='<table><thead>'+head+'</thead><tbody>'+rows+'</tbody></table>';
 }
@@ -247,42 +351,41 @@ function renderGoal(){
   const host=document.getElementById('goal-tracker'); if(!host)return;
   const g=getGoal();
   const r=goalNet(g), target=+g.target||0, net=r.net;
-  const pct=target>0?net/target*100:0, pc=Math.max(0,Math.min(100,pct));
+  const pctv=target>0?net/target*100:0, pc=Math.max(0,Math.min(100,pctv));
   const remaining=Math.max(0,target-net);
   const sY=+g.startYear, eY=sY+(+g.years)-1, totalM=(+g.years)*12;
   const now=new Date();
   let elapsed=(now.getFullYear()-sY)*12+now.getMonth()+now.getDate()/30;
   elapsed=Math.max(0,Math.min(totalM,elapsed));
   const expected=totalM>0?target*elapsed/totalM:0;
+  const expPc=target>0?Math.max(0,Math.min(100,expected/target*100)):0;
   const projected=elapsed>0?net/elapsed*totalM:0;
   const monthsLeft=Math.max(0,Math.ceil(totalM-elapsed));
+  const perMonthNeeded=monthsLeft>0?remaining/monthsLeft:0;
   const pace = elapsed<=0 ? '<span class="badge b-gray">Not started</span>'
     : (net>=expected ? '<span class="badge b-green">On track</span>'
-    : '<span class="badge b-orange">Behind '+fmt(Math.round(expected-net))+'</span>');
-  const amtColor = net>=0 ? 'var(--green)' : 'var(--red)';
+    : '<span class="badge b-orange">Behind by '+fmt(Math.round(expected-net))+'</span>');
+  const amtColor = net>=0 ? 'var(--text)' : 'var(--red)';
   host.innerHTML =
    '<div class="goal-card">'
-   +'<div class="goal-head"><div class="goal-title">'+escHtml(g.label)+' \u2014 '+g.years+'-Year Net Income Goal '+pace+'</div>'
-   +'<button class="btn btn-secondary btn-xs" onclick="toggleGoalEdit(true)">Edit</button></div>'
-   +'<div class="goal-body">'
-     +'<div class="goal-main">'
-       +'<div class="goal-amt" style="color:'+amtColor+'">'+fmt(net)+' <span>of '+fmt(target)+'</span></div>'
-       +'<div class="goal-bar"><div class="goal-bar-fill" style="width:'+pc+'%"></div></div>'
+   +'<div class="goal-head"><div class="goal-title">'+escHtml(g.label)+' <span style="font-weight:400;color:var(--muted)">· '+g.years+'-year net income goal, '+sY+'–'+eY+'</span> '+pace+'</div>'
+   +'<button class="btn btn-secondary btn-xs" onclick="toggleGoalEdit(true)">Edit goal</button></div>'
+   +'<div class="goal-body"><div class="goal-main">'
+       +'<div class="goal-amt" style="color:'+amtColor+'">'+fmt(net)+' <span>of '+fmt(target)+' · '+pctv.toFixed(1)+'%</span></div>'
+       +'<div class="goal-bar" title="The line shows where you should be by now"><div class="goal-bar-fill" style="width:'+pc+'%"></div><div class="goal-bar-mark" style="left:'+expPc+'%"></div></div>'
        +'<div class="goal-stats">'
-         +'<div><div class="goal-stat-lbl">Progress</div><div class="goal-stat-val">'+pct.toFixed(1)+'%</div></div>'
-         +'<div><div class="goal-stat-lbl">Remaining</div><div class="goal-stat-val">'+fmt(remaining)+'</div></div>'
          +'<div><div class="goal-stat-lbl">Rent collected</div><div class="goal-stat-val">'+fmt(r.collected)+'</div></div>'
          +'<div><div class="goal-stat-lbl">Expenses</div><div class="goal-stat-val">'+fmt(r.expenses)+'</div></div>'
-         +'<div><div class="goal-stat-lbl">Deadline</div><div class="goal-stat-val">Dec '+eY+'</div></div>'
+         +'<div><div class="goal-stat-lbl">Still to go</div><div class="goal-stat-val">'+fmt(remaining)+'</div></div>'
+         +'<div><div class="goal-stat-lbl">Needed per month</div><div class="goal-stat-val">'+fmt(Math.round(perMonthNeeded))+'</div></div>'
          +'<div><div class="goal-stat-lbl">Months left</div><div class="goal-stat-val">'+monthsLeft+'</div></div>'
-         +'<div><div class="goal-stat-lbl">Projected by '+eY+'</div><div class="goal-stat-val">'+fmt(Math.round(projected))+'</div></div>'
+         +'<div><div class="goal-stat-lbl">Deadline</div><div class="goal-stat-val">Dec '+eY+'</div></div>'
+         +'<div><div class="goal-stat-lbl">On this pace</div><div class="goal-stat-val">'+fmt(Math.round(projected))+'</div></div>'
        +'</div>'
-     +'</div>'
-     +'<div class="goal-therm"><div class="goal-therm-tube"><div class="goal-therm-fill" style="height:'+pc+'%"></div></div><div class="goal-therm-bulb"></div></div>'
-   +'</div>'
+   +'</div></div>'
    +'<div class="goal-edit" id="goal-edit">'
      +'<div class="fg"><label>Goal name</label><input class="fld" id="ge-label" value="'+escHtml(g.label)+'"></div>'
-     +'<div class="fg"><label>Target (\u0E3F)</label><input class="fld" id="ge-target" type="number" value="'+target+'"></div>'
+     +'<div class="fg"><label>Target (฿)</label><input class="fld" id="ge-target" type="number" value="'+target+'"></div>'
      +'<div class="fg"><label>Start year</label><input class="fld" id="ge-start" type="number" value="'+sY+'"></div>'
      +'<div class="fg"><label>Years</label><input class="fld" id="ge-years" type="number" value="'+g.years+'"></div>'
      +'<button class="btn btn-primary btn-sm" onclick="saveGoalEdit()">Save</button>'
@@ -301,63 +404,150 @@ function saveGoalEdit(){
   setGoalCfg(g); renderGoal(); toast('Goal updated','success');
 }
 
+/** Everything that needs a decision, most urgent first */
+function attentionItems(){
+  const items=[];
+  const props=getData('properties');
+  props.forEach(p=>{
+    const rs=rentStatus(p);
+    if(rs.state==='late'){
+      const t=tenantOf(p.id);
+      items.push({rank:0,cls:'red',ico:ICONS.card,title:`Rent ${-rs.diff} day${rs.diff===-1?'':'s'} late · ${unitLabel(p)}`,sub:`${t?personName(t.name)+' · ':''}${fmt(p.rent)} was due ${fmtD(isoDate(rs.dueDate))}`,act:`<button class="btn btn-pay btn-xs" onclick="quickPayModal('${p.id}')">Mark paid</button>`});
+    }
+  });
+  const unpaidOld=getData('payments').filter(x=>x.status==='Unpaid'&&x.due&&daysUntil(x.due)<0);
+  const curYm=isoDate(today()).slice(0,7);
+  const olderUnpaid=unpaidOld.filter(x=>!String(x.due).startsWith(curYm));
+  if(olderUnpaid.length){
+    items.push({rank:1,cls:'red',ico:ICONS.card,title:`${olderUnpaid.length} older unpaid rent record${olderUnpaid.length>1?'s':''}`,sub:fmt(olderUnpaid.reduce((s,x)=>s+(+x.amount||0),0))+' outstanding from earlier months',act:`<button class="btn btn-secondary btn-xs" onclick="document.getElementById('rent-filter').value='Unpaid';goTo('rent')">Review</button>`});
+  }
+  getData('tenants').forEach(t=>{
+    const d=daysUntil(t.leaseEnd);
+    if(d===null||d>60)return;
+    const p=unitById(t.propId);
+    if(d<0&&d<-60)return; // long gone; still shown in Tenants
+    items.push({rank:d<0?1:d<=30?2:4,cls:d<0?'red':d<=30?'orange':'yellow',ico:ICONS.users,
+      title:d<0?`Lease ended ${-d} days ago · ${personName(t.name)}`:`Lease ends in ${d} day${d===1?'':'s'} · ${personName(t.name)}`,
+      sub:`${p?unitLabel(p):t.propId} · ends ${fmtD(t.leaseEnd)}`,act:`<button class="btn btn-secondary btn-xs" onclick="switchToTenEdit('${escHtml(t.id)}')">Renew</button>`});
+  });
+  getData('keyDates').filter(k=>!String(k.id||'').startsWith('LS_')).forEach(k=>{
+    const d=daysUntil(k.date); if(d===null)return;
+    if(d<0)items.push({rank:1,cls:'red',ico:ICONS.cal,title:`Overdue: ${k.desc||k.type}`,sub:`${k.type} · ${unitLabelById(k.propId)} · was ${fmtD(k.date)}`,act:`<button class="btn btn-secondary btn-xs" onclick="openModal('date','${escHtml(k.id)}')">Open</button>`});
+    else if(d<=(+k.reminder||30))items.push({rank:3,cls:'orange',ico:ICONS.cal,title:`${k.desc||k.type} in ${d} day${d===1?'':'s'}`,sub:`${k.type} · ${unitLabelById(k.propId)} · ${fmtD(k.date)}`,act:`<button class="btn btn-secondary btn-xs" onclick="openModal('date','${escHtml(k.id)}')">Open</button>`});
+  });
+  getData('maintenance').filter(m=>m.status!=='Resolved').forEach(m=>{
+    const days=m.reported?Math.max(0,-daysUntil(m.reported)):0;
+    items.push({rank:days>14?2:3,cls:days>14?'orange':'blue',ico:ICONS.wrench,title:`${m.issue||'Repair'} · ${unitLabelById(m.propId)}`,sub:`${m.status}${m.reported?' · reported '+days+' day'+(days===1?'':'s')+' ago':''}${m.contractor?' · '+m.contractor:''}`,act:`<button class="btn btn-secondary btn-xs" onclick="openModal('maint','${escHtml(m.id)}')">Update</button>`});
+  });
+  getData('documents').forEach(d=>{
+    const du=d.expiry?daysUntil(d.expiry):null; if(du===null||du>30)return;
+    items.push({rank:du<0?1:3,cls:du<0?'red':'yellow',ico:ICONS.doc,title:du<0?`${d.type} expired · ${unitLabelById(d.propId)}`:`${d.type} expires in ${du} days · ${unitLabelById(d.propId)}`,sub:'Expiry '+fmtD(d.expiry),act:`<button class="btn btn-secondary btn-xs" onclick="openModal('doc','${escHtml(d.id)}')">Open</button>`});
+  });
+  props.filter(p=>p.status==='Vacant').forEach(p=>{
+    items.push({rank:4,cls:'blue',ico:ICONS.home,title:`Vacant · ${unitLabel(p)}`,sub:`Asking ${fmt(p.rent)} a month`,act:`<button class="btn btn-secondary btn-xs" onclick="openProp('${p.id}')">View</button>`});
+  });
+  return items.sort((a,b)=>a.rank-b.rank);
+}
+
 function renderDashboard(){
   const props=getData('properties');
   const tenants=getData('tenants');
   const payments=getData('payments');
   const maint=getData('maintenance');
   const keyDates=getData('keyDates');
+  const now=today(), yr=now.getFullYear(), mo=now.getMonth();
 
   const occ=props.filter(p=>p.status==='Occupied');
-  const vacant=props.filter(p=>p.status==='Vacant');
+  const vacant=props.filter(p=>p.status!=='Occupied');
   const monthlyRent=occ.reduce((s,p)=>s+(+p.rent||0),0);
-  const unpaid=payments.filter(p=>p.status==='Unpaid');
-  const unpaidTotal=unpaid.reduce((s,p)=>s+(+p.amount||0),0);
-  const openMaint=maint.filter(m=>m.status==='Open'||m.status==='In Progress');
+  const occPct=props.length?Math.round(occ.length/props.length*100):0;
+  const openMaint=maint.filter(m=>m.status!=='Resolved');
   const overdueAlerts=keyDates.filter(k=>{const d=daysUntil(k.date);return d!==null&&d<0});
-  const dueSoon=keyDates.filter(k=>{const d=daysUntil(k.date);return d!==null&&d>=0&&d<=k.reminder});
+  const dueSoon=keyDates.filter(k=>{const d=daysUntil(k.date);return d!==null&&d>=0&&d<=(+k.reminder||0)});
 
-  document.getElementById('h-props').textContent=props.length;
-  document.getElementById('h-occ').textContent=Math.round(occ.length/props.length*100)+'%';
-  document.getElementById('h-rent').textContent='฿'+(monthlyRent/1000).toFixed(0)+'k';
-  document.getElementById('h-overdue').textContent=unpaid.length;
+  // This month
+  const rows=occ.map(p=>({p,rs:rentStatus(p,yr,mo),t:tenantOf(p.id)}));
+  const paidRows=rows.filter(r=>r.rs.state==='paid'), lateRows=rows.filter(r=>r.rs.state==='late'), dueRows=rows.filter(r=>r.rs.state==='due');
+  const collected=paidRows.reduce((s,r)=>s+(r.rs.amount||+r.p.rent||0),0);
+  const lateAmt=lateRows.reduce((s,r)=>s+(+r.p.rent||0),0);
+  const unpaidRecs=payments.filter(p=>p.status==='Unpaid');
+  const unpaidTotal=unpaidRecs.reduce((s,p)=>s+(+p.amount||0),0);
 
-  document.getElementById('dash-cards').innerHTML=`
-    <div class="card accent"><div class="card-accent-bar"></div><div class="card-lbl">Total Properties</div><div class="card-val">${props.length}</div><div class="card-sub">${occ.length} occupied · ${vacant.length} vacant</div></div>
-    <div class="card green"><div class="card-accent-bar"></div><div class="card-lbl">Occupancy Rate</div><div class="card-val">${Math.round(occ.length/props.length*100)}%</div><div class="card-sub">${occ.length} of ${props.length} units</div></div>
-    <div class="card"><div class="card-accent-bar"></div><div class="card-lbl">Monthly Rent (Occupied)</div><div class="card-val" style="font-size:20px">${fmt(monthlyRent)}</div><div class="card-sub">Across ${occ.length} active leases</div></div>
-    <div class="card red"><div class="card-accent-bar"></div><div class="card-lbl">Overdue Payments</div><div class="card-val">${unpaid.length}</div><div class="card-sub">${fmt(unpaidTotal)} outstanding</div></div>
-    <div class="card orange"><div class="card-accent-bar"></div><div class="card-lbl">Open Maintenance</div><div class="card-val">${openMaint.length}</div><div class="card-sub">Issues needing action</div></div>
-    <div class="card"><div class="card-accent-bar"></div><div class="card-lbl">Key Date Alerts</div><div class="card-val">${overdueAlerts.length+dueSoon.length}</div><div class="card-sub">${overdueAlerts.length} overdue · ${dueSoon.length} due soon</div></div>
-  `;
+  // Year to date (net)
+  const ytdIn=payments.filter(p=>p.status==='Paid'&&String(p.due||p.paid||'').startsWith(String(yr))).reduce((s,p)=>s+(+p.amount||0),0);
+  const ytdOut=getData('expenses').filter(e=>String(e.date||'').startsWith(String(yr))).reduce((s,e)=>s+(+e.amount||0),0);
+  const endingSoon=tenants.filter(t=>{const d=daysUntil(t.leaseEnd);return d!==null&&d>=0&&d<=60});
 
-  let html='';
-  if(overdueAlerts.length)html+=`<div class="alert red">${overdueAlerts.length} key date(s) overdue — check Key Dates immediately.</div>`;
-  if(unpaid.length)html+=`<div class="alert yellow">${unpaid.length} rent payment(s) unpaid totalling ${fmt(unpaidTotal)}.</div>`;
-  if(openMaint.length)html+=`<div class="alert blue">${openMaint.length} maintenance issue(s) open.</div>`;
-  document.getElementById('dash-alerts').innerHTML=html;
+  // Header
+  const h=new Date().getHours();
+  const who=(PM.me.email||'').split('@')[0].replace(/[._-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('dash-hello').textContent=(h<12?'Good morning':h<18?'Good afternoon':'Good evening')+(who?', '+who.split(' ')[0]:'');
+  const bits=[];
+  bits.push(`${paidRows.length} of ${occ.length} units have paid ${MONTHS_L[mo]}'s rent`);
+  if(lateRows.length)bits.push(`${lateRows.length} ${lateRows.length===1?'is':'are'} late`);
+  else if(dueRows.length)bits.push(`${dueRows.length} still to come`);
+  if(openMaint.length)bits.push(`${openMaint.length} repair${openMaint.length>1?'s':''} open`);
+  document.getElementById('dash-summary').textContent=bits.join(', ')+'.';
+
+  // KPI tiles
+  const card=(cls,ico,lbl,val,sub,go,hot)=>`<button type="button" class="card ${cls}" onclick="goTo('${go}')"><div class="card-top"><span class="card-ico">${ico}</span><span class="card-lbl">${lbl}</span></div><div class="card-val ${hot?'hot':''}">${val}</div><div class="card-sub">${sub}</div></button>`;
+  document.getElementById('dash-cards').innerHTML=
+    card('accent',ICONS.card,'Rent roll',fmt(monthlyRent),`a month from ${occ.length} lease${occ.length===1?'':'s'}`,'props')
+   +card('green',ICONS.check,`Collected in ${MONTHS_S[mo]}`,fmt(collected),`${monthlyRent?Math.round(collected/monthlyRent*100):0}% of expected`,'cal')
+   +card(lateRows.length||unpaidRecs.length?'red':'',ICONS.alert,'Overdue rent',fmt(lateAmt+unpaidRecs.filter(x=>!String(x.due||'').startsWith(isoDate(now).slice(0,7))).reduce((s,x)=>s+(+x.amount||0),0)),(lateRows.length||unpaidRecs.length)?`${lateRows.length+unpaidRecs.length} payment${lateRows.length+unpaidRecs.length===1?'':'s'} outstanding`:'Nobody owes rent','rent',lateRows.length>0)
+   +card('',ICONS.pie,'Occupancy',occPct+'%',`${occ.length} of ${props.length} units let`,'props')
+   +card('',ICONS.trend,`Net income ${yr}`,fmt(ytdIn-ytdOut),`${fmtK(ytdIn)} in · ${fmtK(ytdOut)} out`,'inc')
+   +card(openMaint.length?'orange':'',ICONS.wrench,'Open repairs',String(openMaint.length),endingSoon.length?`${endingSoon.length} lease${endingSoon.length>1?'s':''} ending in 60 days`:'No leases ending soon','maint');
+
+  // This month box
+  const expected=monthlyRent||1;
+  document.getElementById('month-title').textContent=`${MONTHS_L[mo]} rent`;
+  const order={late:0,due:1,paid:2};
+  const list=rows.slice().sort((a,b)=>(order[a.rs.state]-order[b.rs.state])||(a.rs.diff-b.rs.diff));
+  document.getElementById('month-box').innerHTML=
+    `<div class="month-top"><div class="month-amt">${fmt(collected)} <span>of ${fmt(monthlyRent)} collected</span></div>
+      <div class="month-meta">${paidRows.length} paid · ${dueRows.length} to come · ${lateRows.length} late</div></div>
+     <div class="meter"><span class="m-paid" style="width:${collected/expected*100}%"></span><span class="m-late" style="width:${lateAmt/expected*100}%"></span></div>
+     <div class="meter-legend"><span><i style="background:var(--green)"></i>Paid</span><span><i style="background:var(--red)"></i>Late</span><span><i style="background:var(--surface3);border:1px solid var(--border2)"></i>Not due yet</span></div>
+     <ul class="mlist">${list.length?list.map(({p,rs,t})=>`
+      <li class="mrow">
+        <div style="min-width:0"><div class="mrow-name" onclick="openProp('${p.id}')">${escHtml(unitLabel(p))}</div>
+          <div class="mrow-sub">${t?escHtml(personName(t.name))+' · ':''}due ${fmtD(isoDate(rs.dueDate))}${rs.state==='paid'&&rs.rec&&rs.rec.paid?' · paid '+fmtD(rs.rec.paid):''}</div></div>
+        <div class="mrow-amt">${fmt(rs.state==='paid'?(rs.amount||p.rent):p.rent)}</div>
+        <div class="mrow-act">${rentPill(rs)}${rs.state!=='paid'?`<button class="btn btn-pay btn-xs" onclick="quickPayModal('${p.id}')">Mark paid</button>`:''}</div>
+      </li>`).join(''):'<li class="mrow"><div class="mrow-sub">No occupied units yet.</div></li>'}</ul>`;
+
+  // Attention
+  const att=attentionItems();
+  document.getElementById('attn-count').textContent=att.length?att.length+' item'+(att.length>1?'s':''):'';
+  document.getElementById('attn-list').innerHTML=att.length?att.slice(0,8).map(a=>`<li class="aitem"><span class="aico ${a.cls}">${a.ico}</span><div class="atext"><div class="atitle">${escHtml(a.title)}</div><div class="asub">${escHtml(a.sub)}</div></div>${a.act||''}</li>`).join('')
+    +(att.length>8?`<li class="aitem"><div class="asub">and ${att.length-8} more in Key dates, Tenants and Maintenance.</div></li>`:'')
+    :`<li class="all-clear"><span class="all-clear-ico">${ICONS.check}</span><strong>All clear</strong>Nothing late, nothing expiring, no open repairs.</li>`;
 
   // Sidebar badges
-  const nb_m=document.getElementById('nb-maint');
-  nb_m.textContent=openMaint.length;nb_m.style.display=openMaint.length?'inline':'none';
-  const urgentDates=overdueAlerts.length+dueSoon.length;
-  const nb_d=document.getElementById('nb-dates');
-  nb_d.textContent=urgentDates;nb_d.style.display=urgentDates?'inline':'none';
-  const expiredDocs=getData('documents').filter(d=>d.expiry&&daysUntil(d.expiry)!==null&&daysUntil(d.expiry)<=30);
-  const nb_doc=document.getElementById('nb-docs');
-  nb_doc.textContent=expiredDocs.length;nb_doc.style.display=expiredDocs.length?'inline':'none';
+  const setNb=(id,n)=>{const el=document.getElementById(id);if(!el)return;el.textContent=n;el.style.display=n?'inline-flex':'none';};
+  setNb('nb-maint',openMaint.length);
+  setNb('nb-dates',overdueAlerts.length+dueSoon.length);
+  setNb('nb-docs',getData('documents').filter(d=>d.expiry&&daysUntil(d.expiry)!==null&&daysUntil(d.expiry)<=30).length);
+  setNb('nb-rent',lateRows.length);
+  setNb('nb-ten',endingSoon.length);
 
   // Leases expiring 60 days
-  const expiring=tenants.filter(t=>{const d=daysUntil(t.leaseEnd);return d!==null&&d<=60});
+  const expiring=tenants.filter(t=>{const d=daysUntil(t.leaseEnd);return d!==null&&d<=60&&d>=-60});
   const lbody=document.getElementById('dash-leases');
-  if(!expiring.length){lbody.innerHTML='<tr class="empty"><td colspan="7">No leases expiring within 60 days.</td></tr>';
+  if(!expiring.length){lbody.innerHTML='<tr class="empty"><td colspan="5">No leases end in the next 60 days.</td></tr>';
   } else {
     lbody.innerHTML=expiring.sort((a,b)=>new Date(a.leaseEnd)-new Date(b.leaseEnd)).map(t=>{
-      const p=getData('properties').find(x=>x.id===t.propId)||{};
+      const p=unitById(t.propId)||{};
       const d=daysUntil(t.leaseEnd);
-      return`<tr><td>${t.id}</td><td><strong>${t.name}</strong></td><td>${p.name||t.propId}</td><td>${fmtD(t.leaseEnd)}</td><td>${daysPill(d)}</td><td>${fmt(p.rent)}</td><td><button class="btn btn-secondary btn-xs" onclick="switchToTenEdit('${t.id}')">Renew</button></td></tr>`;
+      return`<tr><td class="cell-link" onclick="${p.id?`openProp('${escHtml(p.id)}')`:''}"><div class="cell-main">${escHtml(personName(t.name))}</div><div class="cell-sub">${escHtml(p.name?unitLabel(p):t.propId)}</div></td><td style="white-space:nowrap">${fmtD(t.leaseEnd)}</td><td>${daysPill(d)}</td><td>${fmt(p.rent)}</td><td><button class="btn btn-secondary btn-xs" onclick="switchToTenEdit('${escHtml(t.id)}')">Renew</button></td></tr>`;
     }).join('');
   }
+
+  // Rent by unit
+  const maxR=Math.max(1,...props.map(p=>+p.rent||0));
+  document.getElementById('rent-bars').innerHTML=props.length?props.slice().sort((a,b)=>(+b.rent||0)-(+a.rent||0)).map(p=>`<div class="hbar-row"><div class="hbar-name" title="${escHtml(p.name)}">${escHtml(unitLabel(p))}</div><div class="hbar-track"><div class="hbar-fill ${p.status==='Occupied'?'':'vac'}" style="width:${(+p.rent||0)/maxR*100}%"></div></div><div class="hbar-val">${fmt(p.rent)}</div></div>`).join(''):'<div class="dempty">No units yet.</div>';
 
   renderOccChart(occ.length,vacant.length);
   renderIncChart();
@@ -365,26 +555,32 @@ function renderDashboard(){
   renderReminders();
   renderGoal();
   renderTodos();
+  if(_drawerId&&document.getElementById('drawer').classList.contains('open'))openProp(_drawerId);
 }
 
 function renderOccChart(occ,vac){
-  const ctx=document.getElementById('occChart').getContext('2d');
+  const el=document.getElementById('occChart'); if(!el)return;
+  const ctx=el.getContext('2d');
   if(occChartInst)occChartInst.destroy();
+  const total=occ+vac;
+  document.getElementById('occ-pct').textContent=total?Math.round(occ/total*100)+'%':'—';
+  document.getElementById('occ-legend').innerHTML=
+    `<div class="legend-row"><i style="background:${cssVar('--chart-1')}"></i><span>Let</span><b>${occ}</b></div>`
+   +`<div class="legend-row"><i style="background:${cssVar('--chart-2')}"></i><span>Vacant</span><b>${vac}</b></div>`
+   +`<div class="legend-row"><i style="background:transparent"></i><span>Vacancy costs</span><b>${fmt(getData('properties').filter(p=>p.status!=='Occupied').reduce((s,p)=>s+(+p.rent||0),0))}/mo</b></div>`;
   occChartInst=new Chart(ctx,{
     type:'doughnut',
-    data:{
-      labels:['Occupied','Vacant'],
-      datasets:[{data:[occ,vac],backgroundColor:['#2563eb','#e5e7eb'],borderWidth:3,borderColor:'#ffffff',hoverBorderColor:'#ffffff',hoverOffset:4}]
-    },
-    options:{plugins:{legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},color:'#6b7280',padding:18,usePointStyle:true,pointStyleWidth:8}}},cutout:'74%'}
+    data:{labels:['Let','Vacant'],datasets:[{data:[occ,vac],backgroundColor:[cssVar('--chart-1'),cssVar('--chart-2')],borderWidth:0,hoverOffset:3}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'78%'}
   });
 }
 
 function renderIncChart(){
-  const ctx=document.getElementById('incChart').getContext('2d');
+  const el=document.getElementById('incChart'); if(!el)return;
+  const ctx=el.getContext('2d');
   if(incChartInst)incChartInst.destroy();
   const yr=new Date().getFullYear();
-  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('inc-chart-title').textContent='Income vs expenses, '+yr;
   const income=Array(12).fill(0), expenses=Array(12).fill(0);
   getData('payments').filter(p=>p.status==='Paid').forEach(p=>{
     const ds=p.due||p.paid; if(!ds)return;
@@ -395,72 +591,272 @@ function renderIncChart(){
     if(!e.date)return; const d=new Date(e.date); if(d.getFullYear()!==yr)return;
     expenses[d.getMonth()]+=(+e.amount||0);
   });
+  const tIn=income.reduce((a,b)=>a+b,0), tOut=expenses.reduce((a,b)=>a+b,0);
+  const best=income.indexOf(Math.max(...income));
+  document.getElementById('inc-chart-foot').innerHTML=
+    `<div>Rent collected<strong>${fmt(tIn)}</strong></div><div>Expenses<strong>${fmt(tOut)}</strong></div><div>Net<strong style="color:${tIn-tOut>=0?'var(--green)':'var(--red)'}">${fmt(tIn-tOut)}</strong></div>`
+   +(tIn?`<div>Best month<strong>${MONTHS_S[best]} · ${fmtK(income[best])}</strong></div>`:'');
+  const muted=cssVar('--muted'), grid=cssVar('--chart-grid');
+  const font={size:12,family:'Geist, Inter, sans-serif'};
   incChartInst=new Chart(ctx,{
     type:'bar',
-    data:{
-      labels:months,
-      datasets:[
-        {label:'Income (rent collected)',data:income,backgroundColor:'#2563eb',borderRadius:4,borderSkipped:false,hoverBackgroundColor:'#1d4ed8',maxBarThickness:22},
-        {label:'Expenses (logged)',data:expenses,backgroundColor:'#cbd5e1',borderRadius:4,borderSkipped:false,hoverBackgroundColor:'#94a3b8',maxBarThickness:22}
-      ]
-    },
+    data:{labels:MONTHS_S,datasets:[
+      {label:'Rent collected',data:income,backgroundColor:cssVar('--chart-1'),borderRadius:5,borderSkipped:false,maxBarThickness:20},
+      {label:'Expenses',data:expenses,backgroundColor:cssVar('--chart-2'),borderRadius:5,borderSkipped:false,maxBarThickness:20}
+    ]},
     options:{
-      plugins:{legend:{position:'bottom',labels:{font:{size:12,family:'Inter'},color:'#6b7280',padding:18,usePointStyle:true,pointStyleWidth:8}}},
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'top',align:'end',labels:{font,color:muted,boxWidth:8,boxHeight:8,usePointStyle:true,pointStyle:'rectRounded'}},
+        tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+fmt(c.raw)}}
+      },
       scales:{
-        y:{ticks:{callback:v=>'฿'+(v/1000).toFixed(0)+'k',font:{size:10,family:'Inter'},color:'#6b7280'},grid:{color:'#f0f1f4'},border:{color:'transparent'}},
-        x:{ticks:{font:{size:10,family:'Inter'},color:'#6b7280'},grid:{color:'transparent'},border:{color:'transparent'}}
+        y:{ticks:{callback:v=>fmtK(v),font,color:muted,maxTicksLimit:5},grid:{color:grid},border:{display:false}},
+        x:{ticks:{font,color:muted},grid:{display:false},border:{display:false}}
       }
     }
   });
 }
 
 function switchToTenEdit(id){
-  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
-  document.querySelector('[data-t="ten"]').classList.add('active');
-  document.getElementById('p-ten').classList.add('active');
-  document.getElementById('pageTitle').textContent='Tenants';
-  renderTenants();
-  setTimeout(()=>openModal('ten',id),100);
+  goTo('ten');
+  setTimeout(()=>openModal('ten',id),60);
 }
 
+/* ══ LOG RENT: pick a unit ══ */
+function openPayChooser(){
+  const occ=getData('properties').filter(p=>p.status==='Occupied');
+  if(!occ.length){toast('No occupied units to log rent for','error');return;}
+  const rows=occ.map(p=>({p,rs:rentStatus(p),t:tenantOf(p.id)})).sort((a,b)=>({late:0,due:1,paid:2}[a.rs.state]-{late:0,due:1,paid:2}[b.rs.state])||(a.rs.diff-b.rs.diff));
+  document.getElementById('modal-title').textContent=`Log rent for ${MONTHS_L[today().getMonth()]}`;
+  document.getElementById('modal-body').innerHTML=`<ul class="pick-list">${rows.map(({p,rs,t})=>`
+    <li class="pick-row"><div class="pr-main"><div class="pr-name">${escHtml(unitLabel(p))}</div><div class="pr-sub">${t?escHtml(personName(t.name))+' · ':''}${fmt(p.rent)} · due ${fmtD(isoDate(rs.dueDate))}</div></div>
+    ${rentPill(rs)}<button class="btn ${rs.state==='paid'?'btn-secondary':'btn-pay'} btn-xs" onclick="quickPayModal('${p.id}')">${rs.state==='paid'?'Log another':'Mark paid'}</button></li>`).join('')}</ul>`;
+  const save=document.getElementById('modal-save');
+  save.textContent='Done'; save.onclick=closeModal;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+/* ══ UNIT DRAWER: everything about one unit ══ */
+let _drawerId=null;
+function openProp(id){
+  const p=unitById(id); if(!p){toast('Unit not found','error');return;}
+  _drawerId=id;
+  const s=splitUnit(p.name);
+  const t=tenantOf(id);
+  const yr=today().getFullYear();
+  const pays=getData('payments').filter(x=>x.propId===id).sort((a,b)=>String(b.due||b.paid||'').localeCompare(String(a.due||a.paid||'')));
+  const exps=getData('expenses').filter(e=>e.propId===id).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  const mts=getData('maintenance').filter(m=>m.propId===id);
+  const docs=getData('documents').filter(d=>d.propId===id);
+  const cons=getData('contracts').filter(c=>c.propId===id);
+  const loans=getData('loans').filter(l=>l.propId===id);
+  const contacts=getData('contacts').filter(c=>c.propId===id||c.propId==='ALL');
+  const dates=getData('keyDates').filter(k=>k.propId===id&&daysUntil(k.date)!==null&&daysUntil(k.date)>=0).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const yIn=pays.filter(x=>x.status==='Paid'&&String(x.due||x.paid||'').startsWith(String(yr))).reduce((a,x)=>a+(+x.amount||0),0);
+  const yOut=exps.filter(e=>String(e.date||'').startsWith(String(yr))).reduce((a,e)=>a+(+e.amount||0),0);
+  const rs=rentStatus(p);
+  const cam=(+p.sqm||0)*(+p.camRate||0);
+  const fact=(l,v)=>`<div><dt>${l}</dt><dd>${v}</dd></div>`;
+  const m12=MONTHS_S.map((m,i)=>{const r=rentStatus(p,yr,i);const cls=r.state==='paid'?'paid':(r.state==='late'?'due':'');return`<div class="m12 ${cls}" title="${MONTHS_L[i]}: ${r.state==='paid'?'paid':r.state==='late'?'not collected':'not due yet'}"><i></i>${m}</div>`;}).join('');
+
+  document.getElementById('drawer-head').innerHTML=`
+    <div class="drawer-head-top">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><span class="id-tag">${escHtml(p.id)}</span>${statusBadge(p.status)}${p.status==='Occupied'?rentPill(rs):''}</div>
+        <div class="drawer-title">${escHtml(s.building)}${s.unit?' <span style="color:var(--muted);font-weight:500">'+escHtml(s.unit)+'</span>':''}</div>
+      </div>
+      <button class="icon-btn" onclick="closeDrawer()" aria-label="Close">${ICONS.x}</button>
+    </div>
+    ${p.address?`<div class="drawer-addr">${escHtml(p.address)}</div>`:''}
+    <div class="drawer-actions">
+      ${p.status==='Occupied'?`<button class="btn btn-pay btn-sm" onclick="quickPayModal('${p.id}')">${ICONS.check}Log rent</button>`:''}
+      <button class="btn btn-secondary btn-sm edit-only" onclick="openModal('maint',null);setTimeout(()=>{const s=document.getElementById('mf_propId');if(s)s.value='${p.id}'},0)">Report issue</button>
+      <button class="btn btn-secondary btn-sm edit-only" onclick="openModal('prop','${p.id}')">${ICONS.edit}Edit unit</button>
+    </div>`;
+
+  document.getElementById('drawer-body').innerHTML=`
+    <div class="dsec"><dl class="dfacts">
+      ${fact('Monthly rent',fmt(p.rent))}${fact('Rent due',(+p.rentDueDay?'Day '+p.rentDueDay:'—'))}${fact('Meter reading',(+p.meterReadDay?'Day '+p.meterReadDay:'—'))}
+      ${fact('Size',+p.sqm?p.sqm+' sqm':'—')}${fact('CAM / month',cam?fmt(cam):'—')}${fact('Type',escHtml(p.type||'—'))}
+      ${fact('Value',+p.value?fmt(p.value):'—')}${fact('Gross yield',pct((+p.rent||0)*12,p.value))}${fact('Net '+yr,`<span style="color:${yIn-yOut>=0?'var(--green)':'var(--red)'}">${fmt(yIn-yOut)}</span>`)}
+    </dl></div>
+
+    <div class="dsec"><div class="dsec-title">Tenant ${t?`<button class="box-link edit-only" onclick="openModal('ten','${escHtml(t.id)}')">Edit</button>`:''}</div>
+      ${t?`<div style="display:flex;gap:12px;align-items:center">${avatar(t.name,'lg')}<div style="min-width:0"><div style="font-weight:600;font-size:15px">${escHtml(personName(t.name))}${t.nickname?' <span style="color:var(--muted);font-weight:400">('+escHtml(t.nickname)+')</span>':''}</div>${personLocal(t.name)?`<div class="cell-sub">${escHtml(personLocal(t.name))}</div>`:''}</div></div>
+        <div class="contact-line">${t.phone?ICONS.phone.replace('<svg','<svg style="width:14px;height:14px;vertical-align:-2px;color:var(--muted)"')+' '+telLink(t.phone):''}${t.email?mailLink(t.email):''}</div>
+        <dl class="dfacts" style="margin-top:12px">${fact('Lease start',fmtD(t.leaseStart))}${fact('Lease end',fmtD(t.leaseEnd)+' '+(daysUntil(t.leaseEnd)!==null&&daysUntil(t.leaseEnd)<=60?daysPill(daysUntil(t.leaseEnd)):''))}${fact('Deposit',fmt(t.deposit))}</dl>
+        ${leaseBar(t,'width:100%;margin-top:10px')}`
+      :`<div class="dempty">No tenant linked to this unit.</div> <button class="btn btn-secondary btn-sm edit-only" style="margin-top:10px" onclick="openModal('ten',null);setTimeout(()=>{const s=document.getElementById('mf_propId');if(s)s.value='${p.id}'},0)">Add tenant</button>`}
+    </div>
+
+    <div class="dsec"><div class="dsec-title">Rent in ${yr} <button class="box-link" onclick="closeDrawer();goTo('cal')">Calendar</button></div>
+      <div class="months12">${m12}</div>
+      <div class="contact-line" style="color:var(--muted)">Collected ${fmt(yIn)} this year · ${pays.filter(x=>x.status==='Unpaid').length} unpaid record${pays.filter(x=>x.status==='Unpaid').length===1?'':'s'}</div>
+    </div>
+
+    <div class="dsec"><div class="dsec-title">Recent payments</div>
+      ${pays.length?`<ul class="dlist">${pays.slice(0,6).map(x=>`<li><div class="dl-main"><div>${fmtD(x.due||x.paid)}</div><div class="dl-sub">${x.paid?'Paid '+fmtD(x.paid):'Not paid yet'}${x.notes?' · '+escHtml(x.notes):''}</div></div><div style="display:flex;gap:8px;align-items:center"><strong>${fmt(x.amount)}</strong>${statusBadge(x.status)}</div></li>`).join('')}</ul>`:'<div class="dempty">No payments recorded yet.</div>'}
+    </div>
+
+    <div class="dsec"><div class="dsec-title">Repairs</div>
+      ${mts.length?`<ul class="dlist">${mts.slice().sort((a,b)=>(a.status==='Resolved')-(b.status==='Resolved')).slice(0,6).map(m=>`<li><div class="dl-main"><div>${escHtml(m.issue||'—')}</div><div class="dl-sub">Reported ${fmtD(m.reported)}${m.contractor?' · '+escHtml(m.contractor):''}${m.cost?' · '+fmt(m.cost):''}</div></div>${statusBadge(m.status)}</li>`).join('')}</ul>`:'<div class="dempty">No repairs logged.</div>'}
+    </div>
+
+    <div class="dsec"><div class="dsec-title">Expenses <span class="box-sub" style="margin-left:auto">${fmt(yOut)} in ${yr}</span></div>
+      ${exps.length?`<ul class="dlist">${exps.slice(0,6).map(e=>`<li><div class="dl-main"><div>${escHtml(e.desc||e.category)}</div><div class="dl-sub">${escHtml(e.category||'')} · ${fmtD(e.date)}</div></div><strong>${fmt(e.amount)}</strong></li>`).join('')}</ul>`:'<div class="dempty">No expenses logged.</div>'}
+    </div>
+
+    ${dates.length?`<div class="dsec"><div class="dsec-title">Coming up</div><ul class="dlist">${dates.slice(0,5).map(k=>`<li><div class="dl-main"><div>${escHtml(k.desc||k.type)}</div><div class="dl-sub">${escHtml(k.type)} · ${fmtD(k.date)}</div></div>${daysPill(daysUntil(k.date))}</li>`).join('')}</ul></div>`:''}
+
+    <div class="dsec"><div class="dsec-title">Documents and contracts</div>
+      ${docs.length||cons.length?`<ul class="dlist">${docs.map(d=>`<li><div class="dl-main"><div>${escHtml(d.type)}</div><div class="dl-sub">${d.expiry?'Expires '+fmtD(d.expiry):'No expiry'}</div></div>${PM.files()[d.id]?`<button class="btn btn-secondary btn-xs" onclick="viewFile('${escHtml(d.id)}')">View</button>`:'<span class="dl-sub">No file</span>'}</li>`).join('')}${cons.map(c=>`<li><div class="dl-main"><div>${escHtml(c.type)}</div><div class="dl-sub">${fmtD(c.start)} – ${fmtD(c.end)}</div></div>${PM.files()[c.id]?`<button class="btn btn-secondary btn-xs" onclick="viewFile('${escHtml(c.id)}')">View</button>`:statusBadge(c.status)}</li>`).join('')}</ul>`:'<div class="dempty">Nothing filed for this unit.</div>'}
+    </div>
+
+    ${loans.length?`<div class="dsec"><div class="dsec-title">Loan</div><ul class="dlist">${loans.map(l=>`<li><div class="dl-main"><div>${escHtml(l.bank||'Loan')} · ${l.rate||0}%</div><div class="dl-sub">${fmt(l.monthly)} a month · ends ${fmtD(l.end)}</div></div><strong>${fmt(l.balance)} left</strong></li>`).join('')}</ul></div>`:''}
+
+    ${contacts.length?`<div class="dsec"><div class="dsec-title">Contacts</div><ul class="dlist">${contacts.map(c=>`<li><div class="dl-main"><div>${escHtml(c.name)}</div><div class="dl-sub">${escHtml(c.role||'')}${c.company?' · '+escHtml(c.company):''}</div></div>${telLink(c.phone)}</li>`).join('')}</ul></div>`:''}
+  `;
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer').setAttribute('aria-hidden','false');
+  document.getElementById('drawer-overlay').classList.add('open');
+}
+function closeDrawer(){
+  _drawerId=null;
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer').setAttribute('aria-hidden','true');
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
+
+/* ══ GLOBAL SEARCH ══ */
+(function(){
+  const input=document.getElementById('gsearch-input');
+  const box=document.getElementById('gsearch-results');
+  if(!input)return;
+  let sel=0, results=[];
+  function run(){
+    const q=input.value.trim().toLowerCase();
+    if(!q){box.classList.remove('open');return;}
+    const has=(...v)=>v.some(x=>String(x||'').toLowerCase().includes(q));
+    results=[];
+    getData('properties').filter(p=>has(p.name,p.id,p.address)).slice(0,6).forEach(p=>results.push({g:'Units',title:unitLabel(p),sub:p.id+' · '+fmt(p.rent)+' · '+p.status,run:()=>openProp(p.id)}));
+    getData('tenants').filter(t=>has(t.name,t.nickname,t.id,t.phone,t.email)).slice(0,6).forEach(t=>results.push({g:'Tenants',title:personName(t.name),sub:unitLabelById(t.propId)+(t.phone?' · '+t.phone:''),run:()=>t.propId&&unitById(t.propId)?openProp(t.propId):openModal('ten',t.id)}));
+    getData('contacts').filter(c=>has(c.name,c.role,c.company,c.phone)).slice(0,4).forEach(c=>results.push({g:'Contacts',title:c.name,sub:[c.role,c.company,c.phone].filter(Boolean).join(' · '),run:()=>{document.getElementById('contacts-q').value=c.name;goTo('contacts');}}));
+    getData('contractors').filter(c=>has(c.name,c.company,c.specialty)).slice(0,4).forEach(c=>results.push({g:'Contractors',title:c.name,sub:[c.specialty,c.company,c.phone].filter(Boolean).join(' · '),run:()=>goTo('contractors')}));
+    sel=0;
+    let last='';
+    box.innerHTML=results.length?results.map((r,i)=>{const head=r.g!==last?`<div class="gs-group">${r.g}</div>`:'';last=r.g;return head+`<button type="button" class="gs-item${i===0?' sel':''}" data-i="${i}"><div class="gs-item-main"><div class="gs-item-title">${escHtml(r.title)}</div><div class="gs-item-sub">${escHtml(r.sub)}</div></div></button>`;}).join(''):`<div class="gs-empty">Nothing matches “${escHtml(input.value)}”.</div>`;
+    box.classList.add('open');
+  }
+  function pick(i){const r=results[i];if(!r)return;box.classList.remove('open');input.value='';input.blur();r.run();}
+  input.addEventListener('input',run);
+  input.addEventListener('focus',()=>{if(input.value)run();});
+  input.addEventListener('keydown',e=>{
+    const items=box.querySelectorAll('.gs-item');
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(!items.length)return;sel=(sel+(e.key==='ArrowDown'?1:-1)+items.length)%items.length;items.forEach((x,i)=>x.classList.toggle('sel',i===sel));items[sel].scrollIntoView({block:'nearest'});}
+    else if(e.key==='Enter'){e.preventDefault();pick(sel);}
+    else if(e.key==='Escape'){box.classList.remove('open');input.blur();}
+  });
+  box.addEventListener('mousedown',e=>{const b=e.target.closest('.gs-item');if(b){e.preventDefault();pick(+b.dataset.i);}});
+  input.addEventListener('blur',()=>setTimeout(()=>box.classList.remove('open'),120));
+  document.addEventListener('keydown',e=>{
+    if(e.key==='/'&&!/^(INPUT|SELECT|TEXTAREA)$/.test((document.activeElement||{}).tagName)){e.preventDefault();input.focus();}
+    if(e.key==='Escape')closeDrawer();
+  });
+})();
+
 /* ══ PROPERTIES ══ */
+let _propView=(()=>{try{return localStorage.getItem('pm-propview')||'cards'}catch(e){return'cards'}})();
+function setPropView(v){
+  _propView=v;try{localStorage.setItem('pm-propview',v)}catch(e){}
+  renderProps();
+}
+const HERO_GRADS=[['#2f55e4','#1b2f8a'],['#13794a','#0b4a2d'],['#b4480f','#6e2a07'],['#5b4bb7','#2f2575'],['#0d6e7d','#063e47'],['#a3366b','#5c1a3b'],['#3f5d7d','#1d2f43'],['#6b5a10','#3a3005']];
+function heroBg(p){const s=splitUnit(p.name).building;let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;const g=HERO_GRADS[h%HERO_GRADS.length];return`linear-gradient(135deg,${g[0]},${g[1]})`;}
+
 function renderProps(){
   const props=getData('properties');
   const q=(document.getElementById('props-q').value||'').toLowerCase();
-  const list=q?props.filter(p=>p.name.toLowerCase().includes(q)||p.id.toLowerCase().includes(q)):props;
-  const docs=getData('documents');
+  const list=q?props.filter(p=>String(p.name).toLowerCase().includes(q)||String(p.id).toLowerCase().includes(q)||String(p.address||'').toLowerCase().includes(q)||(tenantOf(p.id)&&String(tenantOf(p.id).name).toLowerCase().includes(q))):props;
+  document.getElementById('pv-cards').classList.toggle('on',_propView==='cards');
+  document.getElementById('pv-table').classList.toggle('on',_propView==='table');
+  document.getElementById('props-grid').style.display=_propView==='cards'?'':'none';
+  document.getElementById('props-table').style.display=_propView==='table'?'':'none';
+
+  // Summary strip
+  const occ=props.filter(p=>p.status==='Occupied');
+  const roll=occ.reduce((s,p)=>s+(+p.rent||0),0);
+  const valued=props.filter(p=>+p.value>0);
+  const totVal=props.reduce((s,p)=>s+(+p.value||0),0);
+  const avgY=valued.length?(valued.reduce((s,p)=>s+((+p.rent||0)*12/(+p.value)*100),0)/valued.length).toFixed(2)+'%':'—';
+  const paidNow=occ.filter(p=>rentStatus(p).state==='paid').length;
+  renderStrip('props-strip',[
+    {lbl:'Units',val:props.length,sub:`${occ.length} let · ${props.length-occ.length} vacant`},
+    {lbl:'Rent roll',val:fmt(roll),sub:'per month',cls:'accent'},
+    {lbl:`Paid for ${MONTHS_S[today().getMonth()]}`,val:`${paidNow} / ${occ.length}`,sub:occ.length-paidNow?`${occ.length-paidNow} still to collect`:'All collected',cls:paidNow===occ.length&&occ.length?'green':''},
+    {lbl:'Portfolio value',val:totVal?fmtK(totVal):'—',sub:totVal?'from '+valued.length+' valued unit'+(valued.length===1?'':'s'):'Add values to see yield'},
+    {lbl:'Average yield',val:avgY,sub:'gross, valued units'},
+  ]);
+
+  // Cards
+  const grid=document.getElementById('props-grid');
+  if(!list.length){grid.innerHTML='<div class="box" style="grid-column:1/-1;padding:36px;text-align:center;color:var(--muted)">No units match your search.</div>';}
+  else grid.innerHTML=list.map(p=>{
+    const s=splitUnit(p.name), t=tenantOf(p.id), rs=rentStatus(p);
+    const cam=(+p.sqm||0)*(+p.camRate||0);
+    const left=t?daysUntil(t.leaseEnd):null;
+    return`<article class="pcard">
+      <div class="pcard-hero" style="background:${heroBg(p)}" onclick="openProp('${p.id}')">
+        <div class="pcard-hero-top"><span class="pcard-id">${escHtml(p.id)}</span><span class="pcard-status ${p.status==='Occupied'?'':'vac'}">${escHtml(p.status)}</span></div>
+        <div class="pcard-unit">${escHtml(p.type||'')}${+p.sqm?' · '+p.sqm+' sqm':''}${s.unit?' · '+escHtml(s.unit):''}</div>
+      </div>
+      <div class="pcard-body" onclick="openProp('${p.id}')">
+        <div class="pcard-name">${escHtml(s.building)}${s.unit?` <span style="color:var(--muted);font-weight:500">${escHtml(s.unit)}</span>`:''}</div>
+        <div class="pcard-rent"><strong>${fmt(p.rent)}</strong><span>a month</span></div>
+        ${t?`<div class="pcard-tenant">${avatar(t.name)}<div class="pcard-tenant-text"><div class="pcard-tenant-name">${escHtml(personName(t.name))}</div><div class="pcard-tenant-sub">Lease to ${fmtD(t.leaseEnd)}${left!==null&&left<=60?' · '+(left<0?'ended':left+'d left'):''}</div>${leaseBar(t,'width:100%')}</div></div>`
+           :`<div class="pcard-tenant"><span class="avatar" style="background:var(--border2)">–</span><div class="pcard-tenant-text"><div class="pcard-tenant-name" style="color:var(--muted)">No tenant</div><div class="pcard-tenant-sub">Ready to let</div></div></div>`}
+        <dl class="pcard-facts">
+          <div><dt>Rent due</dt><dd>${+p.rentDueDay?'Day '+p.rentDueDay:'—'}</dd></div>
+          <div><dt>Value</dt><dd>${+p.value?fmtK(p.value):'—'}</dd></div>
+          <div><dt>Yield</dt><dd>${pct((+p.rent||0)*12,p.value)}</dd></div>
+          <div><dt>CAM / month</dt><dd>${cam?fmt(cam):'—'}</dd></div>
+        </dl>
+        ${p.status==='Occupied'?`<div class="pcard-month"><span style="color:var(--muted)">${MONTHS_L[today().getMonth()]}</span>${rentPill(rs)}</div>`:''}
+      </div>
+      <div class="pcard-foot">
+        <button class="btn btn-secondary btn-sm" onclick="openProp('${p.id}')">Details</button>
+        ${p.status==='Occupied'&&rs.state!=='paid'?`<button class="btn btn-pay btn-sm" onclick="quickPayModal('${p.id}')">Mark paid</button>`:`<button class="btn btn-secondary btn-sm edit-only" onclick="openModal('prop','${p.id}')">Edit</button>`}
+      </div>
+    </article>`;
+  }).join('');
+
+  // Table
   const tbody=document.getElementById('props-body');
-  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="13">No properties found.</td></tr>';return;}
-  tbody.innerHTML=list.map(p=>{
-    const yld=pct(p.rent*12,p.value);
-    const payBtn=p.status==='Occupied'?`<button class="btn btn-pay btn-xs" onclick="quickPayModal('${p.id}')">Pay</button>`:`<span style="color:var(--muted);font-size:11px">Vacant</span>`;
-    const sqm=+p.sqm||0;
-    const camRate=+p.camRate||0;
-    const totalCam=sqm*camRate;
-    const camCell=totalCam?`<span style="color:var(--cyan);font-weight:600">${fmt(totalCam)}</span>`:'<span style="color:var(--muted)">—</span>';
+  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="13">No units match your search.</td></tr>';}
+  else tbody.innerHTML=list.map(p=>{
+    const yld=pct((+p.rent||0)*12,p.value);
+    const payBtn=p.status==='Occupied'?`<button class="btn btn-pay btn-xs" onclick="quickPayModal('${p.id}')">Log rent</button>`:`<span style="color:var(--muted);font-size:12.5px">Vacant</span>`;
+    const sqm=+p.sqm||0, camRate=+p.camRate||0, totalCam=sqm*camRate;
     return`<tr>
-      <td><strong style="color:var(--accent)">${p.id}</strong></td>
-      <td><strong>${p.name}</strong></td>
-      <td style="font-size:11px;color:var(--muted)">${p.address}</td>
-      <td>${p.type}</td>
+      <td><span class="id-tag">${escHtml(p.id)}</span></td>
+      <td class="cell-link" onclick="openProp('${p.id}')"><div class="cell-main">${escHtml(p.name)}</div></td>
+      <td class="wrap">${escHtml(p.address||'')}</td>
+      <td>${escHtml(p.type||'')}</td>
       <td>${fmt(p.rent)}</td>
       <td>${statusBadge(p.status)}</td>
-      <td>${fmt(p.value)}</td>
+      <td>${+p.value?fmt(p.value):'—'}</td>
       <td>${yld}</td>
-      <td style="text-align:center">${sqm?sqm+' sqm':'<span style="color:var(--muted)">—</span>'}</td>
-      <td style="text-align:center">${camRate?'฿'+camRate:'<span style="color:var(--muted)">—</span>'}</td>
-      <td style="text-align:right">${camCell}</td>
+      <td>${sqm?sqm+' sqm':'—'}</td>
+      <td>${camRate?'฿'+camRate:'—'}</td>
+      <td>${totalCam?fmt(totalCam):'—'}</td>
       <td>${payBtn}</td>
-      <td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('prop','${p.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('properties','${p.id}',renderProps)">Del</button></td>
+      <td>${actBtns('prop','properties',p.id,'renderProps')}</td>
     </tr>`;
   }).join('');
-  const occ=props.filter(p=>p.status==='Occupied');
-  document.getElementById('props-total-rent').textContent=fmt(occ.reduce((s,p)=>s+(+p.rent),0));
-  document.getElementById('props-occ').textContent=occ.length+'/'+props.length+' occupied';
-  document.getElementById('props-total-val').textContent=fmt(props.reduce((s,p)=>s+(+p.value),0));
-  const valued=props.filter(p=>+p.value>0);
-  const avgY=valued.length?(valued.reduce((s,p)=>s+(p.rent*12/p.value*100),0)/valued.length).toFixed(2)+'%':'—';
+  document.getElementById('props-total-rent').textContent=fmt(roll);
+  document.getElementById('props-occ').textContent=occ.length+'/'+props.length+' let';
+  document.getElementById('props-total-val').textContent=totVal?fmt(totVal):'—';
   document.getElementById('props-avg-yield').textContent=avgY;
   const totalCamAll=props.reduce((s,p)=>s+((+p.sqm||0)*(+p.camRate||0)),0);
   document.getElementById('props-total-cam').textContent=totalCamAll?fmt(totalCamAll):'—';
@@ -639,143 +1035,171 @@ function executeGenerate(rows, months){
 
 /* ══ QUICK PAY ══ */
 function quickPayModal(propId){
-  const p=getData('properties').find(x=>x.id===propId);
-  if(!p){toast('Property not found','error');return;}
-  const tenant=getData('tenants').find(x=>x.propId===propId);
-  if(!tenant){toast('No active tenant found for '+p.name,'error');return;}
+  const p=unitById(propId);
+  if(!p){toast('Unit not found','error');return;}
+  const tenant=tenantOf(propId);
+  if(!tenant){toast('No tenant linked to '+unitLabel(p)+' yet','error');return;}
 
-  // Check if a Paid entry already exists for this property this calendar month
-  const now=new Date();
-  const ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
-  const alreadyPaid=getData('payments').find(pay=>
-    pay.propId===propId && pay.status==='Paid' && pay.paid && pay.paid.startsWith(ym)
-  );
+  // Default to the earliest month this year that isn't paid yet (up to this month)
+  const now=today();
+  let target=new Date(now.getFullYear(),now.getMonth(),1);
+  for(let m=0;m<=now.getMonth();m++){const r=rentStatus(p,now.getFullYear(),m);if(r.state==='late'){target=new Date(now.getFullYear(),m,1);break;}}
+  if(rentStatus(p,target.getFullYear(),target.getMonth()).state==='paid'){target=new Date(now.getFullYear(),now.getMonth()+1,1);}
+  const ymVal=target.getFullYear()+'-'+String(target.getMonth()+1).padStart(2,'0');
 
-  const todayStr=now.toISOString().slice(0,10);
-  const monthName=now.toLocaleString('en',{month:'long',year:'numeric'});
-
-  document.getElementById('modal-title').textContent='Log Rent Payment';
+  document.getElementById('modal-title').textContent='Log rent received';
   document.getElementById('modal-body').innerHTML=`
-    <div style="background:var(--green-bg);border:1px solid rgba(34,197,94,.2);border-radius:var(--r-sm);padding:14px 16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:12px">
-      <div>
-        <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:3px">${p.name}</div>
-        <div style="font-size:12px;color:var(--text-2)">Tenant: <strong>${tenant.name}</strong> · ${tenant.phone}</div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div style="display:flex;gap:12px;align-items:center;min-width:0">${avatar(tenant.name)}
+        <div style="min-width:0"><div style="font-size:14px;font-weight:600">${escHtml(unitLabel(p))}</div>
+        <div style="font-size:13px;color:var(--text-2)">${escHtml(personName(tenant.name))}${tenant.phone?' · '+escHtml(tenant.phone):''}</div></div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:22px;font-weight:700;color:var(--green);letter-spacing:-0.02em">${fmt(p.rent)}</div>
-        <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Monthly Rent</div>
+        <div style="font-size:22px;font-weight:600;letter-spacing:-0.02em">${fmt(p.rent)}</div>
+        <div style="font-size:12px;color:var(--muted)">a month · due day ${+p.rentDueDay||1}</div>
       </div>
     </div>
-    ${alreadyPaid?`<div class="alert yellow" style="margin-bottom:16px">A paid entry already exists for ${monthName}. This will add another record — confirm only if it's a different payment.</div>`:''}
+    <div id="qp-warn"></div>
     <div class="fgrid">
-      <div class="fg">
-        <label>Paid Date</label>
-        <input type="date" id="qp-date" value="${todayStr}">
-      </div>
-      <div class="fg">
-        <label>Amount (THB)</label>
-        <input type="number" id="qp-amount" value="${p.rent}" min="0">
-      </div>
-      <div class="fg span2">
-        <label>Reference / Notes (optional)</label>
-        <input type="text" id="qp-notes" placeholder="e.g. Bank transfer ref #4521…">
-      </div>
+      <div class="fg"><label for="qp-month">Rent for</label><input type="month" id="qp-month" value="${ymVal}" oninput="qpCheck('${p.id}')"></div>
+      <div class="fg"><label for="qp-date">Received on</label><input type="date" id="qp-date" value="${isoDate(now)}"></div>
+      <div class="fg"><label for="qp-amount">Amount (฿)</label><input type="number" id="qp-amount" value="${+p.rent||0}" min="0"></div>
+      <div class="fg"><label for="qp-notes">Reference (optional)</label><input type="text" id="qp-notes" placeholder="e.g. transfer ref 4521"></div>
     </div>
-    <label style="display:flex;align-items:center;gap:9px;margin-top:16px;font-size:12.5px;color:var(--text-2);cursor:pointer;user-select:none">
-      <input type="checkbox" id="qp-inc" checked style="width:15px;height:15px;accent-color:var(--accent)">
-      Also update income summary for this month
+    <label style="display:flex;align-items:center;gap:9px;margin-top:16px;font-size:13px;color:var(--text-2);cursor:pointer;user-select:none">
+      <input type="checkbox" id="qp-inc" checked style="width:16px;height:16px;accent-color:var(--accent)">
+      Also add it to the income summary
     </label>
   `;
-  document.getElementById('modal-save').textContent='✓ Confirm Payment';
-  document.getElementById('modal-save').onclick=()=>executeQuickPay(propId,tenant.id);
+  qpCheck(p.id);
+  const save=document.getElementById('modal-save');
+  save.textContent='Confirm payment';
+  save.onclick=()=>executeQuickPay(propId,tenant.id);
   document.getElementById('modal-overlay').classList.add('open');
+}
+function qpCheck(propId){
+  const p=unitById(propId), v=(document.getElementById('qp-month')||{}).value;
+  const w=document.getElementById('qp-warn'); if(!p||!w||!v)return;
+  const [y,m]=v.split('-').map(Number);
+  const r=rentStatus(p,y,m-1);
+  w.innerHTML=r.state==='paid'?`<div class="alert yellow" style="margin-bottom:14px">${MONTHS_L[m-1]} ${y} is already marked paid. Saving adds a second payment.</div>`
+    :(r.rec&&r.rec.status==='Unpaid'?`<div class="alert blue" style="margin-bottom:14px">This will mark the unpaid record ${escHtml(r.rec.id)} as paid.</div>`:'');
 }
 
 function executeQuickPay(propId,tenantId){
+  const p=unitById(propId)||{name:propId};
+  const monthVal=document.getElementById('qp-month').value;
   const dateVal=document.getElementById('qp-date').value;
   const amountVal=+document.getElementById('qp-amount').value||0;
   const updateInc=document.getElementById('qp-inc').checked;
   const notes=document.getElementById('qp-notes').value.trim();
 
-  if(!dateVal){toast('Please enter a paid date','error');return;}
-  if(!amountVal){toast('Please enter a valid amount','error');return;}
+  if(!monthVal){toast('Pick which month the rent is for','error');return;}
+  if(!dateVal){toast('Enter the date you received it','error');return;}
+  if(!amountVal){toast('Enter the amount received','error');return;}
 
-  // Build a clean payment ID
+  const [y,m]=monthVal.split('-').map(Number);
+  const due=monthVal+'-'+String(Math.min(28,Math.max(1,+p.rentDueDay||1))).padStart(2,'0');
   const payments=getData('payments');
-  const newId='RP'+(String(Date.now()).slice(-5));
-  payments.push({id:newId,tenantId,propId,due:dateVal,amount:amountVal,paid:dateVal,status:'Paid',notes:notes||''});
+  const r=rentStatus(p,y,m-1);
+  const open=r.state!=='paid'&&r.rec&&r.rec.status!=='Paid'?payments.find(x=>x.id===r.rec.id):null;
+  if(open){
+    Object.assign(open,{status:'Paid',paid:dateVal,amount:amountVal,notes:notes||open.notes||''});
+  } else {
+    payments.push({id:nextSeqId('payments','RP',3),tenantId,propId,due,amount:amountVal,paid:dateVal,status:'Paid',notes});
+  }
   setData('payments',payments);
 
-  // Update income summary
   if(updateInc){
-    const d=new Date(dateVal);
-    const yr='y'+d.getFullYear();
-    const mo=d.getMonth(); // 0-indexed
+    const yr='y'+y, mo=m-1;
     const inc=getData('income');
-    if(!inc[yr]){
-      // Bootstrap new year with zeros if it doesn't exist yet
-      inc[yr]={rental:Array(12).fill(0),other:Array(12).fill(0),expenses:Array(12).fill(0)};
-    }
+    if(!inc[yr])inc[yr]={rental:Array(12).fill(0),other:Array(12).fill(0),expenses:Array(12).fill(0)};
     inc[yr].rental[mo]=(+inc[yr].rental[mo]||0)+amountVal;
     setData('income',inc);
   }
 
   closeModal();
-  // Reset save button back to default
   document.getElementById('modal-save').textContent='Save';
   document.getElementById('modal-save').onclick=null;
+  toast(`${MONTHS_L[m-1]} rent logged · ${unitLabel(p)} · ${fmt(amountVal)}`,'success');
 
-  const p=getData('properties').find(x=>x.id===propId)||{name:propId};
-  toast(`Payment logged — ${p.name}  ${fmt(amountVal)}`,'success');
-
-  // Refresh whichever panels are visible
   renderDashboard();
-  renderProps();
+  const t=activePanel(); if(t!=='dash')renderPanel(t);
 }
 
 /* ══ TENANTS ══ */
 function renderTenants(){
   const list=getData('tenants');
-  const props=getData('properties');
   const q=(document.getElementById('ten-q').value||'').toLowerCase();
-  const filtered=q?list.filter(t=>t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)):list;
+  const filtered=q?list.filter(t=>[t.name,t.id,t.nickname,t.phone,t.email,unitLabelById(t.propId)].some(v=>String(v||'').toLowerCase().includes(q))):list;
+  const active=list.filter(t=>{const d=daysUntil(t.leaseEnd);return d===null||d>=0;});
+  const ending=list.filter(t=>{const d=daysUntil(t.leaseEnd);return d!==null&&d>=0&&d<=60;});
+  const ended=list.filter(t=>{const d=daysUntil(t.leaseEnd);return d!==null&&d<0;});
+  const deposits=active.reduce((s,t)=>s+(+t.deposit||0),0);
+  renderStrip('ten-strip',[
+    {lbl:'Tenants',val:list.length,sub:`${active.length} on a current lease`},
+    {lbl:'Ending in 60 days',val:ending.length,sub:ending.length?ending.map(t=>personName(t.name).split(' ')[0]).join(', '):'None',cls:ending.length?'orange':''},
+    {lbl:'Lease ended',val:ended.length,sub:ended.length?'Renew or mark as moved out':'None',cls:ended.length?'red':''},
+    {lbl:'Deposits held',val:fmt(deposits),sub:'current leases'},
+  ]);
   const tbody=document.getElementById('ten-body');
-  if(!filtered.length){tbody.innerHTML='<tr class="empty"><td colspan="12">No tenants found.</td></tr>';return;}
-  tbody.innerHTML=filtered.map(t=>{
-    const p=props.find(x=>x.id===t.propId)||{name:t.propId};
+  if(!filtered.length){tbody.innerHTML='<tr class="empty"><td colspan="9">No tenants found.</td></tr>';return;}
+  tbody.innerHTML=filtered.slice().sort((a,b)=>String(a.leaseEnd||'9').localeCompare(String(b.leaseEnd||'9'))).map(t=>{
+    const p=unitById(t.propId);
     const d=daysUntil(t.leaseEnd);
-    const leaseCell=d!==null&&d<=60?`<strong>${fmtD(t.leaseEnd)}</strong> ${daysPill(d)}`:fmtD(t.leaseEnd);
-    const depBadge=t.depositStatus==='Pending'?'<span class="badge b-yellow">Pending</span>':t.depositStatus==='Refunded'?'<span class="badge b-gray">Refunded</span>':'<span class="badge b-blue">Active</span>';
-    return`<tr><td><strong style="color:var(--accent)">${t.id}</strong></td><td><strong>${t.name}</strong></td><td style="color:var(--muted)">${t.nickname||'—'}</td><td>${p.name}</td><td>${t.phone}</td><td style="font-size:11px;color:var(--muted)">${t.email}</td><td>${fmtD(t.leaseStart)}</td><td>${leaseCell}</td><td>${fmt(t.deposit)}</td><td><span class="stars">${stars(+t.rating)}</span></td><td>${depBadge}</td><td>${t.checklist==='Yes'?'<span class="badge b-green">Done</span>':'<span class="badge b-gray">Not yet</span>'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('ten','${t.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('tenants','${t.id}',renderTenants)">Del</button></td></tr>`;
+    const depBadge=t.depositStatus==='Pending'?'<span class="badge b-yellow">Pending</span>':t.depositStatus==='Refunded'?'<span class="badge b-gray">Refunded</span>':'<span class="badge b-blue">Held</span>';
+    const local=personLocal(t.name);
+    return`<tr>
+      <td class="cell-link" onclick="${p?`openProp('${p.id}')`:`openModal('ten','${escHtml(t.id)}')`}"><div style="display:flex;gap:10px;align-items:center">${avatar(t.name)}<div style="min-width:0"><div class="cell-main">${escHtml(personName(t.name))}${t.nickname?' <span class="cell-sub">('+escHtml(t.nickname)+')</span>':''}</div><div class="cell-sub">${local?escHtml(local)+' · ':''}${escHtml(t.id)}</div></div></div></td>
+      <td class="wrap" style="min-width:160px">${p?escHtml(unitLabel(p)):escHtml(t.propId||'—')}</td>
+      <td>${telLink(t.phone)}${t.email?`<div class="cell-sub">${mailLink(t.email)}</div>`:''}</td>
+      <td><div style="display:flex;gap:8px;align-items:center">${fmtD(t.leaseStart)} – ${fmtD(t.leaseEnd)} ${d===null?'':d<0?`<span class="dpill dpill-red">ended</span>`:d<=60?daysPill(d):''}</div>${leaseBar(t,'width:100%')}</td>
+      <td>${fmt(t.deposit)}</td>
+      <td>${depBadge}</td>
+      <td><span class="stars">${stars(+t.rating)}</span></td>
+      <td>${t.checklist==='Yes'?'<span class="badge b-green">Done</span>':'<span class="badge b-gray">Not yet</span>'}</td>
+      <td>${actBtns('ten','tenants',t.id,'renderTenants')}</td></tr>`;
   }).join('');
   initTableSort('ten-body');
 }
 
 /* ══ RENT PAYMENTS ══ */
+const lateFeeOf=p=>{const ov=p.status==='Unpaid'&&p.due?Math.max(0,Math.round((today()-new Date(p.due))/86400000)):0;return{ov,fee:ov>5?ov*100:0};};
 function renderPayments(){
   let list=getData('payments');
+  const allList=list;
   const flt=document.getElementById('rent-filter').value;
   const q=(document.getElementById('rent-q').value||'').toLowerCase();
   if(flt!=='all')list=list.filter(p=>p.status===flt);
-  if(q)list=list.filter(p=>p.tenantId.toLowerCase().includes(q)||p.propId.toLowerCase().includes(q));
+  if(q)list=list.filter(p=>[p.tenantId,p.propId,tenName(p.tenantId),unitLabelById(p.propId),p.notes].some(v=>String(v||'').toLowerCase().includes(q)));
   const tenants=getData('tenants');
+  const now=today(), ym=isoDate(now).slice(0,7), yr=String(now.getFullYear());
+  const occ=getData('properties').filter(p=>p.status==='Occupied');
+  const paidThisMonth=occ.filter(p=>rentStatus(p).state==='paid');
+  const collectedM=paidThisMonth.reduce((s,p)=>s+(rentStatus(p).amount||+p.rent||0),0);
+  const unpaid=allList.filter(p=>p.status==='Unpaid');
+  const ytd=allList.filter(p=>p.status==='Paid'&&String(p.due||p.paid||'').startsWith(yr)).reduce((s,p)=>s+(+p.amount||0),0);
+  const totalFees=allList.reduce((s,p)=>s+lateFeeOf(p).fee,0);
+  const onTime=allList.filter(p=>p.status==='Paid'&&p.paid&&p.due&&p.paid<=p.due).length, paidWithDates=allList.filter(p=>p.status==='Paid'&&p.paid&&p.due).length;
+  renderStrip('rent-strip',[
+    {lbl:`Collected in ${MONTHS_S[now.getMonth()]}`,val:fmt(collectedM),sub:`${paidThisMonth.length} of ${occ.length} units paid`,cls:'green'},
+    {lbl:'Unpaid records',val:unpaid.length,sub:unpaid.length?fmt(unpaid.reduce((s,p)=>s+(+p.amount||0),0))+' outstanding':'Nothing owed',cls:unpaid.length?'red':''},
+    {lbl:'Late fees',val:totalFees?fmt(totalFees):'—',sub:'฿100 a day after 5 days'},
+    {lbl:`Collected in ${yr}`,val:fmt(ytd),sub:'paid records this year',cls:'accent'},
+    {lbl:'Paid on time',val:paidWithDates?Math.round(onTime/paidWithDates*100)+'%':'—',sub:paidWithDates?`${onTime} of ${paidWithDates} payments`:'No history yet'},
+  ]);
   const tbody=document.getElementById('rent-body');
-  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="10">No payments found.</td></tr>';return;}
-  tbody.innerHTML=list.map(p=>{
-    const t=tenants.find(x=>x.id===p.tenantId)||{name:p.tenantId};
-    const overdue=p.status==='Unpaid'?Math.max(0,Math.round((today()-new Date(p.due))/86400000)):0;
-    const fee=overdue>5?overdue*100:0;
-    const rowStyle=p.status==='Unpaid'?'background:rgba(248,113,113,.03)':'';
+  document.getElementById('rent-total').textContent=fmt(allList.reduce((s,p)=>s+(+p.amount||0),0));
+  document.getElementById('rent-unpaid-count').textContent=unpaid.length+' unpaid ('+fmt(unpaid.reduce((s,p)=>s+(+p.amount||0),0))+')';
+  document.getElementById('rent-fees').textContent=totalFees?fmt(totalFees):'—';
+  if(!list.length){tbody.innerHTML=`<tr class="empty"><td colspan="10">${allList.length?'No payments match.':'No payments yet. Use “Log rent received” when a tenant pays.'}</td></tr>`;renderGoal();renderCalendar();return;}
+  tbody.innerHTML=list.slice().sort((a,b)=>String(b.due||b.paid||'').localeCompare(String(a.due||a.paid||''))).map(p=>{
+    const t=tenants.find(x=>x.id===p.tenantId);
+    const {ov,fee}=lateFeeOf(p);
     let ptBadge='';
     if(p.status==='Paid'&&p.paid&&p.due){const diff=Math.round((new Date(p.due)-new Date(p.paid))/86400000);ptBadge=diff>0?' <span class="pt-badge pt-early">'+diff+'d early</span>':(diff<0?' <span class="pt-badge pt-late">'+(-diff)+'d late</span>':' <span class="pt-badge pt-ontime">on time</span>');}
-    return`<tr style="${rowStyle}"><td><strong style="color:var(--accent)">${p.id}</strong></td><td>${t.name}</td><td>${p.propId}</td><td>${fmtD(p.due)}</td><td>${fmt(p.amount)}</td><td>${p.paid?fmtD(p.paid)+ptBadge:'—'}</td><td>${statusBadge(p.status)}</td><td>${overdue?`<span style="color:var(--red);font-weight:600">${overdue}d</span>`:'—'}</td><td>${fee?fmt(fee):'—'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('pay','${p.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('payments','${p.id}',renderPayments)">Del</button></td></tr>`;
+    return`<tr><td><span class="id-tag">${escHtml(p.id)}</span></td><td>${t?escHtml(personName(t.name)):escHtml(p.tenantId||'—')}</td><td>${escHtml(unitLabelById(p.propId))}</td><td>${fmtD(p.due)}</td><td class="num"><strong>${fmt(p.amount)}</strong></td><td>${p.paid?fmtD(p.paid)+ptBadge:'—'}</td><td>${statusBadge(p.status)}</td><td>${ov?`<span style="color:var(--red);font-weight:600">${ov}d</span>`:'—'}</td><td class="num">${fee?fmt(fee):'—'}</td><td>${actBtns('pay','payments',p.id,'renderPayments')}</td></tr>`;
   }).join('');
-  const allList=getData('payments');
-  document.getElementById('rent-total').textContent=fmt(allList.reduce((s,p)=>s+(+p.amount),0));
-  const unpaid=allList.filter(p=>p.status==='Unpaid');
-  document.getElementById('rent-unpaid-count').textContent=unpaid.length+' unpaid ('+fmt(unpaid.reduce((s,p)=>s+(+p.amount),0))+')';
-  const totalFees=allList.reduce((s,p)=>{const ov=p.status==='Unpaid'?Math.max(0,Math.round((today()-new Date(p.due))/86400000)):0;return s+(ov>5?ov*100:0)},0);
-  document.getElementById('rent-fees').textContent=totalFees?fmt(totalFees):'—';
   initTableSort('rent-body');renderGoal();renderCalendar();
 }
 
@@ -786,30 +1210,49 @@ function renderMaint(){
   if(flt==='open')list=list.filter(m=>m.status!=='Resolved');
   else if(flt==='Resolved')list=list.filter(m=>m.status==='Resolved');
   const all=getData('maintenance');
+  const yr=String(today().getFullYear());
+  const open=all.filter(m=>m.status==='Open'), prog=all.filter(m=>m.status==='In Progress'), done=all.filter(m=>m.status==='Resolved');
+  const costY=all.filter(m=>String(m.reported||'').startsWith(yr)).reduce((s,m)=>s+(+m.cost||0),0);
+  const fixDays=done.filter(m=>m.resolved&&m.reported).map(m=>Math.round((new Date(m.resolved)-new Date(m.reported))/86400000));
+  renderStrip('maint-strip',[
+    {lbl:'Open',val:open.length,sub:'not started',cls:open.length?'orange':''},
+    {lbl:'In progress',val:prog.length,sub:'being fixed'},
+    {lbl:'Resolved',val:done.length,sub:'all time',cls:'green'},
+    {lbl:`Repair cost ${yr}`,val:fmt(costY),sub:'reported this year'},
+    {lbl:'Average fix time',val:fixDays.length?Math.round(fixDays.reduce((a,b)=>a+b,0)/fixDays.length)+' days':'—',sub:'resolved issues'},
+  ]);
   const tbody=document.getElementById('maint-body');
-  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="11">No issues found.</td></tr>';return;}
+  if(!list.length){tbody.innerHTML=`<tr class="empty"><td colspan="11">${flt==='open'?'No open issues. Nice.':'No issues found.'}</td></tr>`;return;}
   tbody.innerHTML=list.map(m=>{
     const repeat=all.filter(x=>x.propId===m.propId&&x.issue===m.issue).length>1;
     const dOpen=m.status==='Resolved'&&m.resolved?Math.round((new Date(m.resolved)-new Date(m.reported))/86400000):Math.round((today()-new Date(m.reported))/86400000);
-    const p=getData('properties').find(x=>x.id===m.propId)||{name:m.propId};
-    return`<tr><td><strong style="color:var(--accent)">${m.id}</strong></td><td>${p.name}</td><td>${m.issue}</td><td>${fmtD(m.reported)}</td><td>${fmtD(m.resolved)}</td><td>${m.cost?fmt(m.cost):'—'}</td><td>${statusBadge(m.status)}</td><td>${dOpen}d</td><td>${repeat?'<span class="badge b-orange">Repeat</span>':'—'}</td><td>${m.contractor||'—'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('maint','${m.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('maintenance','${m.id}',renderMaint)">Del</button></td></tr>`;
+    return`<tr><td><span class="id-tag">${escHtml(m.id)}</span></td><td class="cell-link" onclick="openProp('${escHtml(m.propId)}')"><span class="cell-main" style="font-weight:450">${escHtml(unitLabelById(m.propId))}</span></td><td class="wrap"><strong>${escHtml(m.issue||'—')}</strong></td><td>${fmtD(m.reported)}</td><td>${fmtD(m.resolved)}</td><td class="num">${m.cost?fmt(m.cost):'—'}</td><td>${statusBadge(m.status)}</td><td>${isNaN(dOpen)?'—':dOpen+'d'}</td><td>${repeat?'<span class="badge b-orange">Repeat</span>':'—'}</td><td>${escHtml(m.contractor||'—')}</td><td>${actBtns('maint','maintenance',m.id,'renderMaint')}</td></tr>`;
   }).join('');
   initTableSort('maint-body');
 }
 
 /* ══ KEY DATES ══ */
 function renderDates(){
-  let list=getData('keyDates').slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const all=getData('keyDates');
+  let list=all.slice().sort((a,b)=>new Date(a.date)-new Date(b.date));
   const flt=document.getElementById('dates-filter').value;
   if(flt==='urgent')list=list.filter(k=>{const d=daysUntil(k.date);return d!==null&&(d<0||(d>=0&&d<=k.reminder))});
   else if(flt!=='all')list=list.filter(k=>k.type===flt);
+  const over=all.filter(k=>{const d=daysUntil(k.date);return d!==null&&d<0;});
+  const soon=all.filter(k=>{const d=daysUntil(k.date);return d!==null&&d>=0&&d<=(+k.reminder||0);});
+  const next=all.filter(k=>{const d=daysUntil(k.date);return d!==null&&d>=0;}).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
+  renderStrip('dates-strip',[
+    {lbl:'Overdue',val:over.length,sub:'date has passed',cls:over.length?'red':''},
+    {lbl:'Due soon',val:soon.length,sub:'inside the reminder window',cls:soon.length?'orange':''},
+    {lbl:'Next up',val:next?fmtD(next.date):'—',sub:next?escHtml(next.desc||next.type):'Nothing scheduled'},
+    {lbl:'All dates',val:all.length,sub:'lease ends are added for you'},
+  ]);
   const tbody=document.getElementById('dates-body');
   if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="8">No dates to show.</td></tr>';return;}
   tbody.innerHTML=list.map(k=>{
     const d=daysUntil(k.date);
-    const st=d===null?'—':d<0?'<span class="badge b-red">Overdue</span>':d<=k.reminder?'<span class="badge b-orange">Due Soon</span>':'<span class="badge b-green">OK</span>';
-    const rowCls=d!==null&&d<0?'kd-overdue':d!==null&&d<=k.reminder?'kd-soon':'';
-    return`<tr class="${rowCls}"><td>${fmtD(k.date)}</td><td><span class="badge b-blue">${k.type}</span></td><td>${k.propId==='ALL'?'All':propName(k.propId)}</td><td>${k.desc}</td><td>${k.reminder}d</td><td>${daysPill(d)}</td><td>${st}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('date','${k.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('keyDates','${k.id}',renderDates)">Del</button></td></tr>`;
+    const st=d===null?'—':d<0?'<span class="badge b-red">Overdue</span>':d<=k.reminder?'<span class="badge b-orange">Due soon</span>':'<span class="badge b-green">OK</span>';
+    return`<tr><td><strong>${fmtD(k.date)}</strong></td><td><span class="badge b-blue plain">${escHtml(k.type)}</span></td><td>${escHtml(unitLabelById(k.propId))}</td><td class="wrap">${escHtml(k.desc||'')}</td><td>${k.reminder}d before</td><td>${daysPill(d)}</td><td>${st}</td><td>${actBtns('date','keyDates',k.id,'renderDates')}</td></tr>`;
   }).join('');
   initTableSort('dates-body');
 }
@@ -819,20 +1262,31 @@ function renderExpenses(){
   const list=getData('expenses');
   const props=getData('properties');
   const sel=document.getElementById('exp-filter');
-  if(sel.options.length===1){props.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.id+' · '+p.name;sel.appendChild(o)})}
+  if(sel.options.length!==props.length+1){const cur=sel.value;sel.innerHTML='<option value="all">All units</option>'+props.map(p=>`<option value="${escHtml(p.id)}">${escHtml(unitLabel(p))}</option>`).join('');sel.value=[...sel.options].some(o=>o.value===cur)?cur:'all';}
   const flt=sel.value;
   const filtered=flt==='all'?list:list.filter(e=>e.propId===flt);
+  const now=today(), yr=String(now.getFullYear()), ym=isoDate(now).slice(0,7);
+  const ytd=filtered.filter(e=>String(e.date||'').startsWith(yr));
+  const byCat={};ytd.forEach(e=>{byCat[e.category||'Other']=(byCat[e.category||'Other']||0)+(+e.amount||0);});
+  const topCat=Object.entries(byCat).sort((a,b)=>b[1]-a[1])[0];
+  const over=filtered.filter(e=>(+e.amount||0)>(+e.budget||0)&&+e.budget>0);
+  renderStrip('exp-strip',[
+    {lbl:`Spent in ${yr}`,val:fmt(ytd.reduce((s,e)=>s+(+e.amount||0),0)),sub:`${ytd.length} expense${ytd.length===1?'':'s'}`,cls:'accent'},
+    {lbl:`This month`,val:fmt(filtered.filter(e=>String(e.date||'').startsWith(ym)).reduce((s,e)=>s+(+e.amount||0),0)),sub:MONTHS_L[now.getMonth()]},
+    {lbl:'Biggest category',val:topCat?escHtml(topCat[0]):'—',sub:topCat?fmt(topCat[1])+' this year':'No expenses yet'},
+    {lbl:'Over budget',val:over.length,sub:over.length?'+'+fmt(over.reduce((s,e)=>s+(+e.amount-+e.budget),0)):'All within budget',cls:over.length?'red':''},
+  ]);
   const tbody=document.getElementById('exp-body');
-  if(!filtered.length){tbody.innerHTML='<tr class="empty"><td colspan="10">No expenses found.</td></tr>';return;}
-  tbody.innerHTML=filtered.map(e=>{
-    const ov=e.amount-e.budget;
-    const ovCell=ov>0?`<span style="color:var(--red)">+${fmt(ov)}</span>`:ov<0?`<span style="color:var(--green)">${fmt(ov)}</span>`:'—';
-    return`<tr><td><strong style="color:var(--accent)">${e.id}</strong></td><td>${propName(e.propId)}</td><td>${fmtD(e.date)}</td><td><span class="badge b-blue">${e.category}</span></td><td>${e.desc}</td><td>${fmt(e.amount)}</td><td>${fmt(e.budget)}</td><td>${ovCell}</td><td>${e.recurring==='Yes'?'<span class="badge b-gray">Recurring</span>':'—'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('exp','${e.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('expenses','${e.id}',renderExpenses)">Del</button></td></tr>`;
-  }).join('');
-  document.getElementById('exp-total').textContent=fmt(filtered.reduce((s,e)=>s+(+e.amount),0));
-  document.getElementById('exp-budget').textContent=fmt(filtered.reduce((s,e)=>s+(+e.budget),0));
-  const v=filtered.reduce((s,e)=>s+(+e.amount-+e.budget),0);
+  document.getElementById('exp-total').textContent=fmt(filtered.reduce((s,e)=>s+(+e.amount||0),0));
+  document.getElementById('exp-budget').textContent=fmt(filtered.reduce((s,e)=>s+(+e.budget||0),0));
+  const v=filtered.reduce((s,e)=>s+(+e.amount-+e.budget||0),0);
   document.getElementById('exp-var').innerHTML=v>0?`<span style="color:var(--red)">+${fmt(v)}</span>`:`<span style="color:var(--green)">${fmt(v)}</span>`;
+  if(!filtered.length){tbody.innerHTML='<tr class="empty"><td colspan="10">No expenses yet.</td></tr>';renderGoal();return;}
+  tbody.innerHTML=filtered.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).map(e=>{
+    const ov=(+e.amount||0)-(+e.budget||0);
+    const ovCell=ov>0?`<span style="color:var(--red)">+${fmt(ov)}</span>`:ov<0?`<span style="color:var(--green)">${fmt(ov)}</span>`:'—';
+    return`<tr><td><span class="id-tag">${escHtml(e.id)}</span></td><td>${escHtml(unitLabelById(e.propId))}</td><td>${fmtD(e.date)}</td><td><span class="badge b-gray plain">${escHtml(e.category||'—')}</span></td><td class="wrap">${escHtml(e.desc||'')}</td><td class="num"><strong>${fmt(e.amount)}</strong></td><td class="num">${fmt(e.budget)}</td><td class="num">${ovCell}</td><td>${e.recurring==='Yes'?'<span class="badge b-gray plain">Recurring</span>':'—'}</td><td>${actBtns('exp','expenses',e.id,'renderExpenses')}</td></tr>`;
+  }).join('');
   initTableSort('exp-body');renderGoal();
 }
 
@@ -877,26 +1331,45 @@ function renderIncome(){
 /* ══ LOANS ══ */
 function renderLoans(){
   const list=getData('loans');
+  const tot=list.reduce((s,l)=>s+(+l.amount||0),0), bal=list.reduce((s,l)=>s+(+l.balance||0),0), mo=list.reduce((s,l)=>s+(+l.monthly||0),0);
+  const roll=getData('properties').filter(p=>p.status==='Occupied').reduce((s,p)=>s+(+p.rent||0),0);
+  renderStrip('loans-strip',list.length?[
+    {lbl:'Borrowed',val:fmt(tot),sub:`${list.length} loan${list.length===1?'':'s'}`},
+    {lbl:'Still owed',val:fmt(bal),sub:tot?Math.round((1-bal/tot)*100)+'% paid off':'',cls:'accent'},
+    {lbl:'Monthly repayments',val:fmt(mo),sub:roll?Math.round(mo/roll*100)+'% of rent roll':''},
+    {lbl:'Cash left after loans',val:fmt(roll-mo),sub:'rent roll minus repayments',cls:roll-mo>=0?'green':'red'},
+  ]:[]);
   const tbody=document.getElementById('loans-body');
-  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="10">No loans on record.</td></tr>';return;}
-  tbody.innerHTML=list.map(l=>`<tr><td><strong style="color:var(--accent)">${l.id}</strong></td><td>${propName(l.propId)}</td><td>${l.bank}</td><td>${fmt(l.amount)}</td><td>${l.rate}%</td><td>${fmt(l.monthly)}</td><td>${fmtD(l.start)}</td><td>${fmtD(l.end)}</td><td>${fmt(l.balance)}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('loan','${l.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('loans','${l.id}',renderLoans)">Del</button></td></tr>`).join('');
-  document.getElementById('loans-total-amt').textContent=fmt(list.reduce((s,l)=>s+(+l.amount),0));
-  document.getElementById('loans-total-mo').textContent=fmt(list.reduce((s,l)=>s+(+l.monthly),0));
-  document.getElementById('loans-total-bal').textContent=fmt(list.reduce((s,l)=>s+(+l.balance),0));
+  document.getElementById('loans-total-amt').textContent=fmt(tot);
+  document.getElementById('loans-total-mo').textContent=fmt(mo);
+  document.getElementById('loans-total-bal').textContent=fmt(bal);
+  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="11">No loans recorded.</td></tr>';return;}
+  tbody.innerHTML=list.map(l=>{
+    const paid=+l.amount>0?Math.max(0,Math.min(100,(1-(+l.balance||0)/(+l.amount))*100)):0;
+    return`<tr><td><span class="id-tag">${escHtml(l.id)}</span></td><td>${escHtml(unitLabelById(l.propId))}</td><td>${escHtml(l.bank||'—')}</td><td class="num">${fmt(l.amount)}</td><td class="num">${l.rate||0}%</td><td class="num">${fmt(l.monthly)}</td><td>${fmtD(l.start)}</td><td>${fmtD(l.end)}</td><td class="num"><strong>${fmt(l.balance)}</strong></td><td><div class="lease-bar" style="width:90px"><span style="width:${paid.toFixed(0)}%;background:var(--green)"></span></div><div class="cell-sub">${paid.toFixed(0)}%</div></td><td>${actBtns('loan','loans',l.id,'renderLoans')}</td></tr>`;
+  }).join('');
   initTableSort('loans-body');
 }
 
 /* ══ DOCUMENTS ══ */
 function renderDocs(){
-  let list=getData('documents');
+  const all=getData('documents');
+  let list=all;
   const flt=document.getElementById('docs-filter').value;
   if(flt==='expiring')list=list.filter(d=>d.expiry&&daysUntil(d.expiry)!==null&&daysUntil(d.expiry)<=90);
+  const files=PM.files();
+  const expired=all.filter(d=>d.expiry&&daysUntil(d.expiry)<0), soon=all.filter(d=>d.expiry&&daysUntil(d.expiry)>=0&&daysUntil(d.expiry)<=90);
+  renderStrip('docs-strip',all.length?[
+    {lbl:'Documents',val:all.length,sub:`${all.filter(d=>files[d.id]).length} with a file attached`},
+    {lbl:'Expiring in 90 days',val:soon.length,sub:soon.length?'renew in time':'None',cls:soon.length?'orange':''},
+    {lbl:'Expired',val:expired.length,sub:expired.length?'needs renewing':'None',cls:expired.length?'red':''},
+  ]:[]);
   const tbody=document.getElementById('docs-body');
-  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="7">No documents found.</td></tr>';return;}
+  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="8">No documents yet. Add title deeds, insurance and tax receipts here.</td></tr>';return;}
   tbody.innerHTML=list.map(d=>{
     const du=d.expiry?daysUntil(d.expiry):null;
-    const expCell=d.expiry?(du<0?`<span style="color:var(--red);font-weight:700">${fmtD(d.expiry)} EXPIRED</span>`:du<=30?`<span style="color:var(--orange);font-weight:600">${fmtD(d.expiry)}</span>`:fmtD(d.expiry)):'N/A';
-    return`<tr><td><strong style="color:var(--accent)">${d.id}</strong></td><td>${propName(d.propId)}</td><td><span class="badge b-blue">${d.type}</span></td><td>${fmtD(d.issued)}</td><td>${expCell}</td><td>${d.expiry?daysPill(du):'—'}</td><td>${fileCell(d.id)}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('doc','${d.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('documents','${d.id}',renderDocs)">Del</button></td></tr>`;
+    const expCell=d.expiry?(du<0?`<span style="color:var(--red);font-weight:600">${fmtD(d.expiry)} · expired</span>`:du<=30?`<span style="color:var(--orange);font-weight:600">${fmtD(d.expiry)}</span>`:fmtD(d.expiry)):'No expiry';
+    return`<tr><td><span class="id-tag">${escHtml(d.id)}</span></td><td>${escHtml(unitLabelById(d.propId))}</td><td><span class="badge b-blue plain">${escHtml(d.type||'—')}</span></td><td>${fmtD(d.issued)}</td><td>${expCell}</td><td>${d.expiry?daysPill(du):'—'}</td><td>${fileCell(d.id)}</td><td>${actBtns('doc','documents',d.id,'renderDocs')}</td></tr>`;
   }).join('');
   initTableSort('docs-body');
 }
@@ -905,8 +1378,8 @@ function renderDocs(){
 function renderContracts(){
   const list=getData('contracts');
   const tbody=document.getElementById('contracts-body');
-  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="10">No contracts found.</td></tr>';return;}
-  tbody.innerHTML=list.map(c=>`<tr><td><strong style="color:var(--accent)">${c.id}</strong></td><td>${propName(c.propId)}</td><td>${c.tenantId?tenName(c.tenantId):'—'}</td><td>${c.type}</td><td>${fmtD(c.start)}</td><td>${fmtD(c.end)}</td><td>${fmt(c.value)}</td><td>${statusBadge(c.status)}</td><td>${fileCell(c.id)}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('contract','${c.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('contracts','${c.id}',renderContracts)">Del</button></td></tr>`).join('');
+  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="10">No contracts yet.</td></tr>';return;}
+  tbody.innerHTML=list.map(c=>`<tr><td><span class="id-tag">${escHtml(c.id)}</span></td><td>${escHtml(unitLabelById(c.propId))}</td><td>${c.tenantId?escHtml(personName(tenName(c.tenantId))):'—'}</td><td>${escHtml(c.type||'—')}</td><td>${fmtD(c.start)}</td><td>${fmtD(c.end)} ${c.end&&c.status==='Active'&&daysUntil(c.end)<=60?daysPill(daysUntil(c.end)):''}</td><td class="num">${fmt(c.value)}</td><td>${statusBadge(c.status)}</td><td>${fileCell(c.id)}</td><td>${actBtns('contract','contracts',c.id,'renderContracts')}</td></tr>`).join('');
   initTableSort('contracts-body');
 }
 
@@ -914,10 +1387,10 @@ function renderContracts(){
 function renderContacts(){
   const list=getData('contacts');
   const q=(document.getElementById('contacts-q').value||'').toLowerCase();
-  const filtered=q?list.filter(c=>c.name.toLowerCase().includes(q)||c.role.toLowerCase().includes(q)):list;
+  const filtered=q?list.filter(c=>[c.name,c.role,c.company,c.phone,c.email,c.notes].some(v=>String(v||'').toLowerCase().includes(q))):list;
   const tbody=document.getElementById('contacts-body');
-  if(!filtered.length){tbody.innerHTML='<tr class="empty"><td colspan="9">No contacts found.</td></tr>';return;}
-  tbody.innerHTML=filtered.map(c=>`<tr><td><strong style="color:var(--accent)">${c.id}</strong></td><td><strong>${c.name}</strong></td><td>${c.role}</td><td>${c.company}</td><td>${c.phone}</td><td style="font-size:11px;color:var(--muted)">${c.email}</td><td>${c.propId==='ALL'?'All':propName(c.propId)}</td><td style="font-size:11px;color:var(--muted)">${c.notes||'—'}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('contact','${c.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('contacts','${c.id}',renderContacts)">Del</button></td></tr>`).join('');
+  if(!filtered.length){tbody.innerHTML=`<tr class="empty"><td colspan="8">${list.length?'No contacts match.':'No contacts yet. Add the juristic office, agents and anyone you call often.'}</td></tr>`;return;}
+  tbody.innerHTML=filtered.map(c=>`<tr><td><div style="display:flex;gap:10px;align-items:center">${avatar(c.name)}<div><div class="cell-main">${escHtml(c.name||'—')}</div><div class="cell-sub">${escHtml(c.id)}</div></div></div></td><td>${escHtml(c.role||'—')}</td><td>${escHtml(c.company||'—')}</td><td>${telLink(c.phone)}</td><td>${mailLink(c.email)}</td><td>${escHtml(unitLabelById(c.propId))}</td><td class="cell-sub wrap">${escHtml(c.notes||'—')}</td><td>${actBtns('contact','contacts',c.id,'renderContacts')}</td></tr>`).join('');
   initTableSort('contacts-body');
 }
 
@@ -925,26 +1398,28 @@ function renderContacts(){
 function renderContractors(){
   const list=getData('contractors');
   const tbody=document.getElementById('contractors-body');
-  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="8">No contractors found.</td></tr>';return;}
-  tbody.innerHTML=list.map(c=>`<tr><td><strong>${c.name}</strong></td><td>${c.company}</td><td>${c.specialty}</td><td>${c.phone}</td><td style="font-size:11px;color:var(--muted)">${c.email}</td><td><span class="stars">${stars(+c.rating)}</span></td><td>${fmtD(c.lastUsed)}</td><td style="white-space:nowrap"><button class="btn btn-secondary btn-xs" onclick="openModal('contractor','${c.id}')">Edit</button> <button class="btn btn-danger btn-xs" onclick="delItem('contractors','${c.id}',renderContractors)">Del</button></td></tr>`).join('');
+  if(!list.length){tbody.innerHTML='<tr class="empty"><td colspan="8">No contractors yet. Add plumbers, electricians and cleaners you trust.</td></tr>';return;}
+  tbody.innerHTML=list.map(c=>{
+    const jobs=getData('maintenance').filter(m=>m.contractor&&(m.contractor===c.name||m.contractor===c.company)).length;
+    return`<tr><td><div style="display:flex;gap:10px;align-items:center">${avatar(c.name)}<div><div class="cell-main">${escHtml(c.name||'—')}</div>${jobs?`<div class="cell-sub">${jobs} job${jobs===1?'':'s'} logged</div>`:''}</div></div></td><td>${escHtml(c.company||'—')}</td><td>${escHtml(c.specialty||'—')}</td><td>${telLink(c.phone)}</td><td>${mailLink(c.email)}</td><td><span class="stars">${stars(+c.rating)}</span></td><td>${fmtD(c.lastUsed)}</td><td>${actBtns('contractor','contractors',c.id,'renderContractors')}</td></tr>`;
+  }).join('');
   initTableSort('contractors-body');
 }
 
-/* ══ DELETE (tap Del, then "Sure?" to confirm) ══ */
+/* ══ DELETE (tap Delete, then "Sure?" to confirm) ══ */
 function delItem(key,id,cb){
   const btn=window.event&&window.event.target&&window.event.target.closest('button');
   if(btn&&btn.dataset.confirm!=='pending'){
     btn.dataset.confirm='pending';btn.textContent='Sure?';
-    setTimeout(()=>{if(btn.isConnected){btn.dataset.confirm='';btn.textContent='Del';}},3000);
+    setTimeout(()=>{if(btn.isConnected){btn.dataset.confirm='';btn.textContent='Delete';}},3000);
     return;
   }
   const list=getData(key);
-  const item=list.find(x=>x.id===id);
   setData(key,list.filter(x=>x.id!==id));
   if(key==='tenants')syncLeaseDates();
   if((key==='documents'||key==='contracts')&&PM.files()[id])PM.removeFile(id);
   cb();
-  if(['properties','tenants','payments','maintenance','expenses'].includes(key))renderDashboard();
+  if(['properties','tenants','payments','maintenance','expenses','keyDates','documents'].includes(key))renderDashboard();
   toast(`Deleted ${id}`,'success');
 }
 
@@ -1051,7 +1526,7 @@ function openModal(type,id){
       let opts='<option value="">— none —</option>';
       if((f.ph||'').includes('ALL'))opts+=`<option value="ALL"${val==='ALL'?' selected':''}>All properties</option>`;
       if(val&&val!=='ALL'&&!items.some(x=>x.id===val))opts+=`<option value="${escHtml(String(val))}" selected>${escHtml(String(val))}</option>`;
-      opts+=items.map(x=>`<option value="${x.id}"${val===x.id?' selected':''}>${x.id} · ${escHtml(String(x.name||''))}</option>`).join('');
+      opts+=items.map(x=>`<option value="${x.id}"${val===x.id?' selected':''}>${escHtml(f.id==='propId'?unitLabel(x):personName(x.name))} · ${escHtml(x.id)}</option>`).join('');
       return`<div class="${cls}"><label>${f.label.replace(' ID','')}</label><select id="mf_${f.id}">${opts}</select></div>`;
     }
     if(f.type==='select'){
@@ -1217,48 +1692,47 @@ function editIncCell(td, yr, field, idx){
   };
 }
 
-/* ══ UPCOMING REMINDERS ══ */
+/* ══ COMING UP (next 14 days) ══ */
 function renderReminders(){
   const props = getData('properties');
-  const today = new Date(); today.setHours(0,0,0,0);
+  const now = today();
   const WINDOW = 14;
   const items = [];
+  const nextDay=(day)=>{let d=new Date(now.getFullYear(),now.getMonth(),day);if(d<now)d=new Date(now.getFullYear(),now.getMonth()+1,day);return d;};
 
   props.forEach(p => {
-    // Rent collection — only for occupied properties with a due day set
-    const rentDay = +p.rentDueDay || 0;
-    if(rentDay > 0 && p.status === 'Occupied'){
-      let d = new Date(today.getFullYear(), today.getMonth(), rentDay);
-      if(d < today) d = new Date(today.getFullYear(), today.getMonth()+1, rentDay);
-      const diff = Math.round((d - today) / 86400000);
-      if(diff <= WINDOW) items.push({prop:p, type:'Rent Collection', icon:'', date:d, diff});
+    if(p.status!=='Occupied')return;
+    const rentDay=+p.rentDueDay||0;
+    if(rentDay>0){
+      const d=nextDay(rentDay), diff=Math.round((d-now)/86400000);
+      // Skip if this month's rent for that due date is already paid
+      const paid=rentStatus(p,d.getFullYear(),d.getMonth()).state==='paid';
+      if(diff<=WINDOW&&!paid)items.push({unit:unitLabel(p),propId:p.id,what:'Rent due · '+fmt(p.rent),date:d,diff});
     }
-    // Meter reading — for all occupied properties with a read day set
-    const readDay = +p.meterReadDay || 0;
-    if(readDay > 0 && p.status === 'Occupied'){
-      let d = new Date(today.getFullYear(), today.getMonth(), readDay);
-      if(d < today) d = new Date(today.getFullYear(), today.getMonth()+1, readDay);
-      const diff = Math.round((d - today) / 86400000);
-      if(diff <= WINDOW) items.push({prop:p, type:'Meter Reading', icon:'', date:d, diff});
+    const readDay=+p.meterReadDay||0;
+    if(readDay>0){
+      const d=nextDay(readDay), diff=Math.round((d-now)/86400000);
+      if(diff<=WINDOW)items.push({unit:unitLabel(p),propId:p.id,what:'Meter reading',date:d,diff});
     }
   });
+  getData('keyDates').forEach(k=>{
+    const diff=daysUntil(k.date);
+    if(diff===null||diff<0||diff>WINDOW)return;
+    let what=k.desc||k.type;
+    if(String(k.id||'').startsWith('LS_')){const t=getData('tenants').find(x=>'LS_'+x.id===k.id);what='Lease ends · '+(t?personName(t.name):what);}
+    items.push({unit:unitLabelById(k.propId),propId:k.propId,what,date:new Date(k.date),diff});
+  });
 
-  items.sort((a,b) => a.diff - b.diff);
-
-  const tbody = document.getElementById('reminders-body');
-  if(!tbody) return;
-  if(!items.length){
-    tbody.innerHTML='<tr class="empty"><td colspan="4">No rent or meter reading reminders in the next 14 days.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = items.map(item => {
-    const cls = item.diff < 0 ? 'b-red' : item.diff === 0 ? 'b-red' : item.diff <= 3 ? 'b-orange' : item.diff <= 7 ? 'b-yellow' : 'b-green';
-    const lbl = item.diff < 0 ? `${Math.abs(item.diff)}d overdue` : item.diff === 0 ? 'Today!' : `In ${item.diff}d`;
-    const dateStr = item.date.toISOString().split('T')[0];
-    return `<tr>
-      <td><strong>${escHtml(item.prop.name)}</strong></td>
-      <td>${item.icon} ${item.type === 'Meter Reading' ? 'Meter Reading' : item.type}</td>
-      <td>${fmtD(dateStr)}</td>
+  items.sort((a,b)=>a.diff-b.diff);
+  const tbody=document.getElementById('reminders-body');
+  if(!tbody)return;
+  if(!items.length){tbody.innerHTML='<tr class="empty"><td colspan="3">Nothing due in the next 14 days.</td></tr>';return;}
+  tbody.innerHTML=items.map(item=>{
+    const cls=item.diff===0?'b-red':item.diff<=3?'b-orange':item.diff<=7?'b-yellow':'b-gray';
+    const lbl=item.diff===0?'Today':item.diff===1?'Tomorrow':`In ${item.diff} days`;
+    return`<tr>
+      <td class="cell-link" onclick="${unitById(item.propId)?`openProp('${escHtml(item.propId)}')`:''}"><div class="cell-main">${escHtml(item.what)}</div><div class="cell-sub">${escHtml(item.unit)}</div></td>
+      <td style="white-space:nowrap">${fmtD(isoDate(item.date))}</td>
       <td><span class="badge ${cls}">${lbl}</span></td>
     </tr>`;
   }).join('');
@@ -1296,7 +1770,7 @@ function renderYTD(){
 
   // Update title year
   const titleEl = document.getElementById('ytd-title');
-  if(titleEl) titleEl.textContent = `${curYear} — Payments Collected Year to Date`;
+  if(titleEl) titleEl.textContent = `Rent collected in ${curYear}`;
 
   // KPI strip
   ytdKpis.innerHTML = `
@@ -1341,7 +1815,7 @@ function renderYTD(){
     running += b.total;
     const propTags = b.propIds.map(id => {
       const p = props.find(x => x.id === id);
-      return `<span class="ytd-prop-tag">${p ? p.name.split(' ').slice(0,2).join(' ') : id}</span>`;
+      return `<span class="ytd-prop-tag">${escHtml(p ? unitLabel(p) : id)}</span>`;
     }).join('');
     return `
       <tr>
@@ -1454,7 +1928,7 @@ function renderTodos(){
   `;
 }
 
-function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escHtml(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 function syncLeaseDates(){
   const tenants=getData('tenants');
@@ -1525,9 +1999,9 @@ new MutationObserver(()=>{if(_labelQueued)return;_labelQueued=true;requestAnimat
 /* ══ LIVE SYNC ══ re-render when another device changes something */
 PM.onChange=()=>{
   const a=document.activeElement;
-  if(a&&a.closest&&a.closest('.content')&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))return; // don't wipe what you're typing
+  if(a&&a.closest&&(a.closest('.content')||a.closest('.modal'))&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))return; // don't wipe what you're typing
   renderDashboard();
-  renderPanel(document.querySelector('.nav-item.active').dataset.t);
+  const t=activePanel(); if(t!=='dash')renderPanel(t);
 };
 
 /* ══ INIT ══ */
