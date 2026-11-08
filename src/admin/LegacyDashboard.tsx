@@ -3,6 +3,7 @@ import { ConvexReactClient } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import Chart from "chart.js/auto";
 import { createBridge, Me } from "./bridge";
+import { Splash } from "./AdminApp";
 import markup from "./legacy/dashboard.html?raw";
 import css from "./legacy/dashboard.css?raw";
 import dashboardJs from "./legacy/dashboard.js?raw";
@@ -51,14 +52,23 @@ export default function LegacyDashboard({ client, me }: { client: ConvexReactCli
 
   if (error) {
     return (
-      <div style={{ padding: 24, color: "#f56565", fontFamily: "system-ui" }}>
-        Couldn't load your data: {error}
+      <div className="auth-splash-page">
+        <div className="auth-card auth-card-solo">
+          <h1>Couldn't load your data</h1>
+          <p className="auth-text">{error}</p>
+          <button className="auth-btn" onClick={() => window.location.reload()}>
+            Try again
+          </button>
+          <button className="auth-btn secondary" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </div>
       </div>
     );
   }
   return (
     <>
-      {!loaded && <div className="auth-page"><div className="auth-splash">Loading your portfolio…</div></div>}
+      {!loaded && <Splash text="Loading your portfolio…" />}
       <div ref={host} />
     </>
   );
